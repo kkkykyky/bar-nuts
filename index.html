@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>BAR 顧客管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', 'Noto Sans JP', sans-serif; background: #0d0f1a; color: #e2e5f0; min-height: 100vh; }
+
+/* ── Login ── */
+#loginScreen {
+  display: none; position: fixed; inset: 0;
+  background: #0d0f1a; justify-content: center; align-items: center; z-index: 9999;
+}
+.login-card {
+  background: #161929; border: 1px solid #252840; border-radius: 16px;
+  padding: 40px 36px; width: 100%; max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-logo h1 { font-size: 1.8em; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.login-logo p { color: #9098b8; font-size: 0.85em; margin-top: 4px; }
+.login-error { color: #ef4444; font-size: 0.85em; margin-top: 10px; text-align: center; min-height: 20px; }
+
+/* ── App ── */
+#appScreen { display: none; }
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, #13152a 0%, #0d0f1a 100%);
+  padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #252840; box-shadow: 0 2px 20px rgba(0,0,0,0.5); position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.header h1 { font-size: 1.2em; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; white-space: nowrap; }
+.nav-buttons { display: flex; gap: 6px; }
+.nav-btn {
+  background: rgba(255,255,255,0.05); color: #9098b8; border: 1px solid #252840;
+  padding: 7px 14px; border-radius: 18px; cursor: pointer; font-size: 0.82em; transition: all 0.2s;
+}
+.nav-btn:hover, .nav-btn.active { background: #7c6af7; color: white; border-color: #7c6af7; box-shadow: 0 0 12px rgba(124,106,247,0.4); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.user-email { font-size: 0.8em; color: #9098b8; }
+
+/* ── Pages ── */
+.page { display: none; padding: 20px; max-width: 1100px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* ── Cards ── */
+.card { background: #161929; border-radius: 14px; padding: 20px; margin-bottom: 16px; border: 1px solid #252840; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.card-title { font-size: 1em; font-weight: 600; color: #a78bfa; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #7c6af7; display: flex; justify-content: space-between; align-items: center; }
+
+/* ── Forms ── */
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.82em; color: #9098b8; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid #252840; border-radius: 8px;
+  font-size: 0.9em; background: #1e2235; color: #e2e5f0; transition: border-color 0.2s; font-family: inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color: #7c6af7; outline: none; box-shadow: 0 0 0 3px rgba(124,106,247,0.12);
+}
+.form-group select option { background: #1e2235; }
+.form-group textarea { resize: vertical; min-height: 70px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.form-hint { font-size: 0.75em; color: #9098b8; margin-top: 3px; }
+
+/* ── Buttons ── */
+.btn { padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88em; font-weight: 600; transition: all 0.2s; font-family: inherit; }
+.btn-primary { background: linear-gradient(135deg, #7c6af7, #5b4fcf); color: white; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(124,106,247,0.5); }
+.btn-danger { background: #ef4444; color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-success { background: #10b981; color: white; }
+.btn-success:hover { background: #059669; }
+.btn-secondary { background: #252840; color: #9098b8; }
+.btn-secondary:hover { background: #2f3355; color: #e2e5f0; }
+.btn-warning { background: #f59e0b; color: #0d0f1a; }
+.btn-warning:hover { background: #d97706; }
+.btn-sm { padding: 5px 10px; font-size: 0.78em; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #252840; font-size: 0.84em; }
+th { background: #1e2235; font-weight: 600; color: #9098b8; }
+tbody tr:hover td { background: #1a1d30; cursor: pointer; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; padding: 12px 22px; border-radius: 8px;
+  color: white; font-weight: 600; z-index: 99999; transform: translateX(400px); transition: transform 0.35s; font-size: 0.9em;
+}
+.toast.show { transform: translateX(0); }
+.toast-success { background: #10b981; box-shadow: 0 4px 14px rgba(16,185,129,0.4); }
+.toast-error { background: #ef4444; box-shadow: 0 4px 14px rgba(239,68,68,0.4); }
+.toast-info { background: #3b82f6; box-shadow: 0 4px 14px rgba(59,130,246,0.4); }
+
+/* ── Modals ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px); z-index: 5000; justify-content: center; align-items: center; padding: 16px;
+}
+.modal-overlay.active { display: flex; }
+.modal-content {
+  background: #161929; border-radius: 14px; padding: 24px; width: 100%; max-width: 560px;
+  max-height: 90vh; overflow-y: auto; border: 1px solid #252840; box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+}
+.modal-content.modal-lg { max-width: 780px; }
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-header h3 { color: #a78bfa; font-size: 1.05em; }
+.modal-close { background: none; border: none; color: #9098b8; cursor: pointer; font-size: 1.4em; line-height: 1; padding: 0 4px; }
+.modal-close:hover { color: #e2e5f0; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid #252840; }
+
+/* ── Stats (dashboard) ── */
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #161929; border: 1px solid #252840; border-radius: 12px; padding: 18px; text-align: center; }
+.stat-label { font-size: 0.75em; color: #9098b8; margin-bottom: 6px; }
+.stat-value { font-size: 1.6em; font-weight: 700; color: #a78bfa; }
+
+/* ── Tags ── */
+.tag-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.78em;
+  background: #1e1440; color: #a78bfa; border: 1px solid #3d2880; margin: 2px;
+}
+.tag-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.tag-filter-btn {
+  padding: 4px 12px; border-radius: 14px; border: 1px solid #252840; background: #1e2235;
+  color: #9098b8; cursor: pointer; font-size: 0.8em; transition: all 0.2s; font-family: inherit;
+}
+.tag-filter-btn:hover, .tag-filter-btn.active { background: #7c6af7; color: white; border-color: #7c6af7; }
+
+/* ── Search bar ── */
+.search-bar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.search-bar input { flex: 1; min-width: 180px; padding: 9px 12px; border: 1px solid #252840; border-radius: 8px; font-size: 0.88em; background: #1e2235; color: #e2e5f0; font-family: inherit; }
+.search-bar input:focus { border-color: #7c6af7; outline: none; }
+.result-count { font-size: 0.82em; color: #9098b8; align-self: center; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 2px; border-bottom: 2px solid #252840; margin-bottom: 18px; }
+.tab-btn {
+  padding: 9px 18px; background: none; border: none; color: #9098b8;
+  cursor: pointer; font-size: 0.88em; font-weight: 600; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; font-family: inherit; transition: all 0.2s;
+}
+.tab-btn:hover { color: #e2e5f0; }
+.tab-btn.active { color: #a78bfa; border-bottom-color: #7c6af7; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Info grid (customer detail) ── */
+.info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.info-item { background: #1e2235; border-radius: 8px; padding: 10px 12px; }
+.info-item.wide { grid-column: span 2; }
+.info-label { font-size: 0.75em; color: #9098b8; display: block; margin-bottom: 3px; }
+.info-item > span:last-child { font-size: 0.88em; word-break: break-word; }
+
+/* ── Visit items ── */
+.visit-item { background: #1e2235; border: 1px solid #252840; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+.visit-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.visit-date { font-weight: 700; color: #a78bfa; font-size: 0.9em; }
+.visit-amount { font-weight: 700; color: #34d399; }
+.visit-field { font-size: 0.83em; color: #c0c8e0; margin-top: 5px; }
+.vf-label { color: #9098b8; margin-right: 6px; font-size: 0.9em; }
+
+/* ── Memo items ── */
+.memo-item { background: #1e2235; border: 1px solid #252840; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+.memo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.memo-date { font-size: 0.78em; color: #9098b8; }
+
+/* ── Trouble badge ── */
+.trouble-badge { display: inline-block; background: #3d0000; color: #f87171; border: 1px solid #7f1d1d; border-radius: 10px; padding: 2px 8px; font-size: 0.75em; font-weight: 600; }
+
+/* ── Empty state ── */
+.empty-state { text-align: center; padding: 36px; color: #9098b8; font-size: 0.9em; }
+
+/* ── Loading ── */
+.loading { text-align: center; padding: 40px; color: #9098b8; }
+
+/* ── Checkbox ── */
+.checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.88em; color: #e2e5f0; }
+.checkbox-label input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #7c6af7; }
+
+/* ── Config banner ── */
+.config-banner { background: #2d1f00; border: 1px solid #7a4f00; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85em; color: #fbbf24; }
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+  .info-grid { grid-template-columns: 1fr; }
+  .info-item.wide { grid-column: span 1; }
+  .header { padding: 10px 14px; }
+  .modal-content { padding: 18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <h1>BAR Nuts</h1>
+      <p>顧客管理システム</p>
+    </div>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="loginEmail" placeholder="owner@example.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>パスワード</label>
+      <input type="password" id="loginPassword" placeholder="パスワード" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="login()">ログイン</button>
+    <p class="login-error" id="loginError"></p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     APP SCREEN
+═══════════════════════════════════════ -->
+<div id="appScreen">
+  <header class="header">
+    <div class="header-left">
+      <h1>🍸 BAR Nuts</h1>
+      <div class="nav-buttons">
+        <button class="nav-btn active" data-page="Dashboard" onclick="showPage('Dashboard')">ダッシュボード</button>
+        <button class="nav-btn" data-page="Customers" onclick="showPage('Customers')">顧客一覧</button>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="user-email" id="userEmail"></span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">ログアウト</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── Dashboard ── -->
+    <div id="pageDashboard" class="page active">
+      <div id="configBanner" class="config-banner" style="display:none">
+        ⚠️ Supabase の接続情報が未設定です。ファイル内の <code>SUPABASE_URL</code> と <code>SUPABASE_ANON_KEY</code> を設定してください。
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">総顧客数</div>
+          <div class="stat-value" id="statCustomers">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今月の来店回数</div>
+          <div class="stat-value" id="statMonthVisits">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今月の売上合計</div>
+          <div class="stat-value" id="statMonthAmount" style="font-size:1.3em">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">最近の来店</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>来店日</th>
+                <th>顧客名</th>
+                <th>人数</th>
+                <th>売上</th>
+                <th>トラブル</th>
+              </tr>
+            </thead>
+            <tbody id="recentVisits">
+              <tr><td colspan="5" class="empty-state">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Customer List ── -->
+    <div id="pageCustomers" class="page">
+      <div class="card">
+        <div class="card-title">
+          <span>顧客一覧</span>
+          <button class="btn btn-primary btn-sm" onclick="openCustomerForm()">＋ 新規登録</button>
+        </div>
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="名前・ニックネーム・電話番号で検索…" oninput="onSearch(this.value)">
+          <span class="result-count" id="customerCount"></span>
+        </div>
+        <div class="tag-filter-bar" id="tagFilterBtns"></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>名前</th>
+                <th>性別</th>
+                <th>電話</th>
+                <th>タグ</th>
+                <th>誕生日</th>
+              </tr>
+            </thead>
+            <tbody id="customerList">
+              <tr><td colspan="5" class="empty-state">読み込み中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MODAL: 顧客詳細
+═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalCustomerDetail">
+  <div class="modal-content modal-lg">
+    <div class="modal-header">
+      <h3 id="detailCustomerName"></h3>
+      <button class="modal-close" onclick="closeModal('modalCustomerDetail')">×</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="info" onclick="switchTab('info')">基本情報</button>
+      <button class="tab-btn" data-tab="visits" onclick="switchTab('visits')">来店履歴</button>
+      <button class="tab-btn" data-tab="memos" onclick="switchTab('memos')">メモ</button>
+    </div>
+
+    <!-- 基本情報 -->
+    <div class="tab-content active" id="tabinfo">
+      <div id="customerInfoContent"></div>
+    </div>
+
+    <!-- 来店履歴 -->
+    <div class="tab-content" id="tabvisits">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-success btn-sm" onclick="openVisitForm()">＋ 来店記録を追加</button>
+      </div>
+      <div id="visitsList"></div>
+    </div>
+
+    <!-- メモ -->
+    <div class="tab-content" id="tabmemos">
+      <div class="form-group" style="margin-bottom:10px">
+        <textarea id="memoInput" placeholder="メモを入力…" rows="3"></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveMemo()" style="margin-bottom:16px">メモを追加</button>
+      <div id="memosList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MODAL: 顧客フォーム（登録・編集）
+═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalCustomerForm">
+  <div class="modal-content modal-lg">
+    <div class="modal-header">
+      <h3 id="customerFormTitle">新規顧客登録</h3>
+      <button class="modal-close" onclick="closeModal('modalCustomerForm')">×</button>
+    </div>
+    <input type="hidden" id="cfId">
+
+    <div style="display:grid;gap:0">
+      <div class="form-row">
+        <div class="form-group">
+          <label>名前 <span style="color:#ef4444">*</span></label>
+          <input type="text" id="cfName" placeholder="山田 花子">
+        </div>
+        <div class="form-group">
+          <label>ニックネーム</label>
+          <input type="text" id="cfNickname" placeholder="ハナ">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>性別</label>
+          <select id="cfGender">
+            <option value="">未回答</option>
+            <option value="女性">女性</option>
+            <option value="男性">男性</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>生年月日</label>
+          <input type="date" id="cfBirthday">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>電話番号</label>
+          <input type="tel" id="cfPhone" placeholder="090-1234-5678">
+        </div>
+        <div class="form-group">
+          <label>メールアドレス</label>
+          <input type="email" id="cfEmail" placeholder="example@email.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>SNS</label>
+          <input type="text" id="cfSns" placeholder="@username">
+        </div>
+        <div class="form-group">
+          <label>職業</label>
+          <input type="text" id="cfJob" placeholder="会社員">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>喫煙状況</label>
+          <select id="cfSmoking">
+            <option value="">未回答</option>
+            <option value="非喫煙">非喫煙</option>
+            <option value="喫煙">喫煙</option>
+            <option value="電子タバコ">電子タバコ</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>紹介者</label>
+          <input type="text" id="cfReferrer" placeholder="紹介してくれた人">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>住所メモ</label>
+        <input type="text" id="cfAddressMemo" placeholder="〇〇区在住など">
+      </div>
+      <div class="form-group">
+        <label>好きなお酒・飲み物</label>
+        <input type="text" id="cfFavoriteDrinks" placeholder="ウイスキー、赤ワイン…">
+      </div>
+      <div class="form-group">
+        <label>苦手なもの・アレルギー</label>
+        <input type="text" id="cfDislikes" placeholder="甘いもの、柑橘系…">
+      </div>
+      <div class="form-group">
+        <label>タグ</label>
+        <input type="text" id="cfTags" placeholder="常連, VIP, 誕生日12月（カンマ区切り）">
+        <p class="form-hint">カンマ（,）で区切って複数入力できます</p>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="cfMemo" placeholder="その他の特記事項…" rows="3"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalCustomerForm')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveCustomer()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MODAL: 来店記録フォーム
+═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalVisitForm">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="visitFormTitle">来店記録を追加</h3>
+      <button class="modal-close" onclick="closeModal('modalVisitForm')">×</button>
+    </div>
+    <input type="hidden" id="vfId">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>来店日 <span style="color:#ef4444">*</span></label>
+        <input type="date" id="vfDate">
+      </div>
+      <div class="form-group">
+        <label>人数</label>
+        <input type="number" id="vfPeople" min="1" value="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>売上金額（円）</label>
+      <input type="number" id="vfAmount" min="0" placeholder="3000">
+    </div>
+    <div class="form-group">
+      <label>注文したドリンク</label>
+      <input type="text" id="vfDrinks" placeholder="ハイボール×2、カクテル…">
+    </div>
+    <div class="form-group">
+      <label>会話メモ</label>
+      <textarea id="vfConversation" placeholder="話した内容…" rows="3"></textarea>
+    </div>
+    <div class="form-group">
+      <label>次回来店予定・提案</label>
+      <input type="text" id="vfNextPlan" placeholder="来月の誕生日に来店予定…">
+    </div>
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="vfTrouble">
+        トラブルあり
+      </label>
+    </div>
+    <div class="form-group">
+      <label>備考</label>
+      <textarea id="vfMemo" placeholder="その他メモ…" rows="2"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalVisitForm')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveVisit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MODAL: 削除確認
+═══════════════════════════════════════ -->
+<div class="modal-overlay" id="modalConfirmDelete">
+  <div class="modal-content" style="max-width:400px">
+    <div class="modal-header">
+      <h3 style="color:#ef4444">削除の確認</h3>
+      <button class="modal-close" onclick="closeModal('modalConfirmDelete')">×</button>
+    </div>
+    <p id="confirmDeleteMsg" style="color:#c0c8e0;font-size:0.9em;line-height:1.6"></p>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalConfirmDelete')">キャンセル</button>
+      <button class="btn btn-danger" onclick="executeDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- ═══════════════════════════════════════
+     SCRIPT
+═══════════════════════════════════════ -->
+<script>
+// ── 接続情報を設定してください ──────────────────────────
+const SUPABASE_URL = 'https://itsnhivjbkxkgdnjxqeu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_idJkxGrJqyu3QVqOC3kxIA_Rji29tpj';
+// ─────────────────────────────────────────────────────────
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ── State ──
+let customers = [];
+let currentCustomerId = null;
+let currentVisits = [];
+let currentMemos = [];
+let searchQuery = '';
+let activeTagFilter = '';
+let deleteTarget = null;
+
+// ── Init ──────────────────────────────────────────────────
+async function init() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('configBanner').style.display = 'block';
+    document.getElementById('loginError').textContent = '接続情報が未設定です。コードを編集してください。';
+    return;
+  }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    showApp(session.user);
+  } else {
+    showLogin();
+  }
+
+  sb.auth.onAuthStateChange((_event, session) => {
+    if (session) showApp(session.user);
+    else showLogin();
+  });
+}
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appScreen').style.display = 'none';
+}
+
+function showApp(user) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.getElementById('userEmail').textContent = user.email;
+  loadDashboard();
+  loadCustomers();
+}
+
+// ── Auth ──────────────────────────────────────────────────
+async function login() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'メールアドレスとパスワードを入力してください。'; return; }
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) errEl.textContent = 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+}
+
+async function logout() {
+  await sb.auth.signOut();
+}
+
+// ── Navigation ────────────────────────────────────────────
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page' + page).classList.add('active');
+  document.querySelector('[data-page="' + page + '"]').classList.add('active');
+  if (page === 'Dashboard') loadDashboard();
+}
+
+// ── Dashboard ─────────────────────────────────────────────
+async function loadDashboard() {
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const todayStr = today.toISOString().split('T')[0];
+
+  const [
+    { count: customerCount },
+    { data: monthVisits },
+    { data: recentVisits }
+  ] = await Promise.all([
+    sb.from('customers').select('*', { count: 'exact', head: true }),
+    sb.from('visits').select('amount').gte('visit_date', firstOfMonth).lte('visit_date', todayStr),
+    sb.from('visits')
+      .select('*, customers(name, nickname)')
+      .order('visit_date', { ascending: false })
+      .limit(15)
+  ]);
+
+  const monthAmount = (monthVisits || []).reduce((s, v) => s + (v.amount || 0), 0);
+  const monthVisitCount = (monthVisits || []).length;
+
+  document.getElementById('statCustomers').textContent = customerCount ?? '—';
+  document.getElementById('statMonthVisits').textContent = monthVisitCount;
+  document.getElementById('statMonthAmount').textContent = '¥' + monthAmount.toLocaleString();
+
+  const el = document.getElementById('recentVisits');
+  if (!recentVisits || recentVisits.length === 0) {
+    el.innerHTML = '<tr><td colspan="5" class="empty-state">来店記録がありません</td></tr>';
+    return;
+  }
+  el.innerHTML = recentVisits.map(v => `
+    <tr onclick="openCustomerDetail('${v.customer_id}')">
+      <td>${v.visit_date}</td>
+      <td><strong>${v.customers?.name || '—'}</strong>${v.customers?.nickname ? '<br><span style="color:#9098b8;font-size:0.8em">' + v.customers.nickname + '</span>' : ''}</td>
+      <td>${v.number_of_people || 1}名</td>
+      <td style="color:#34d399;font-weight:600">¥${(v.amount || 0).toLocaleString()}</td>
+      <td>${v.has_trouble ? '<span class="trouble-badge">⚠ あり</span>' : '<span style="color:#34d399;font-size:0.82em">なし</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Customers ─────────────────────────────────────────────
+async function loadCustomers() {
+  const { data, error } = await sb.from('customers').select('*').order('created_at', { ascending: false });
+  if (error) { showToast('顧客データの読み込みに失敗しました', 'error'); return; }
+  customers = data || [];
+  renderCustomers();
+  renderTagFilter();
+}
+
+function onSearch(val) {
+  searchQuery = val;
+  renderCustomers();
+}
+
+function renderCustomers() {
+  const q = searchQuery.toLowerCase();
+  const filtered = customers.filter(c => {
+    const matchSearch = !q ||
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.nickname || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q);
+    const matchTag = !activeTagFilter || (c.tags || []).includes(activeTagFilter);
+    return matchSearch && matchTag;
+  });
+
+  document.getElementById('customerCount').textContent = filtered.length + '件';
+  const el = document.getElementById('customerList');
+
+  if (filtered.length === 0) {
+    el.innerHTML = '<tr><td colspan="5" class="empty-state">顧客が見つかりません</td></tr>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(c => `
+    <tr onclick="openCustomerDetail('${c.id}')">
+      <td>
+        <strong>${c.name || ''}</strong>
+        ${c.nickname ? '<br><span style="color:#9098b8;font-size:0.8em">' + c.nickname + '</span>' : ''}
+      </td>
+      <td>${c.gender || ''}</td>
+      <td>${c.phone || ''}</td>
+      <td>${(c.tags || []).map(t => '<span class="tag-badge">' + t + '</span>').join('')}</td>
+      <td>${c.birthday || ''}</td>
+    </tr>
+  `).join('');
+}
+
+function renderTagFilter() {
+  const allTags = [...new Set(customers.flatMap(c => c.tags || []))].sort();
+  const el = document.getElementById('tagFilterBtns');
+  el.innerHTML =
+    '<button class="tag-filter-btn ' + (!activeTagFilter ? 'active' : '') + '" onclick="setTagFilter(\'\')">すべて</button>' +
+    allTags.map(t =>
+      `<button class="tag-filter-btn ${activeTagFilter === t ? 'active' : ''}" onclick="setTagFilter('${t}')">${t}</button>`
+    ).join('');
+}
+
+function setTagFilter(tag) {
+  activeTagFilter = tag;
+  renderCustomers();
+  renderTagFilter();
+}
+
+// ── Customer Detail ────────────────────────────────────────
+async function openCustomerDetail(id) {
+  currentCustomerId = id;
+  const customer = customers.find(c => c.id === id);
+  if (!customer) return;
+
+  renderCustomerInfo(customer);
+
+  const [{ data: visits }, { data: memos }] = await Promise.all([
+    sb.from('visits').select('*').eq('customer_id', id).order('visit_date', { ascending: false }),
+    sb.from('memos').select('*').eq('customer_id', id).order('created_at', { ascending: false })
+  ]);
+
+  currentVisits = visits || [];
+  currentMemos = memos || [];
+  renderVisits();
+  renderMemos();
+
+  document.getElementById('modalCustomerDetail').classList.add('active');
+  switchTab('info');
+}
+
+function renderCustomerInfo(c) {
+  document.getElementById('detailCustomerName').textContent =
+    c.name + (c.nickname ? '（' + c.nickname + '）' : '');
+
+  document.getElementById('customerInfoContent').innerHTML = `
+    <div class="info-grid">
+      <div class="info-item"><span class="info-label">性別</span><span>${c.gender || '—'}</span></div>
+      <div class="info-item"><span class="info-label">生年月日</span><span>${c.birthday || '—'}</span></div>
+      <div class="info-item"><span class="info-label">電話</span><span>${c.phone || '—'}</span></div>
+      <div class="info-item"><span class="info-label">メール</span><span>${c.email || '—'}</span></div>
+      <div class="info-item"><span class="info-label">SNS</span><span>${c.sns || '—'}</span></div>
+      <div class="info-item"><span class="info-label">職業</span><span>${c.job || '—'}</span></div>
+      <div class="info-item"><span class="info-label">喫煙状況</span><span>${c.smoking_status || '—'}</span></div>
+      <div class="info-item"><span class="info-label">紹介者</span><span>${c.referrer || '—'}</span></div>
+      <div class="info-item wide"><span class="info-label">住所メモ</span><span>${c.address_memo || '—'}</span></div>
+      <div class="info-item wide"><span class="info-label">好きなお酒・飲み物</span><span>${c.favorite_drinks || '—'}</span></div>
+      <div class="info-item wide"><span class="info-label">苦手なもの・アレルギー</span><span>${c.dislikes || '—'}</span></div>
+      <div class="info-item wide"><span class="info-label">タグ</span><span>${(c.tags || []).map(t => '<span class="tag-badge">' + t + '</span>').join('') || '—'}</span></div>
+      <div class="info-item wide"><span class="info-label">メモ</span><span style="white-space:pre-wrap">${c.memo || '—'}</span></div>
+    </div>
+    <div class="btn-group" style="margin-top:16px">
+      <button class="btn btn-warning btn-sm" onclick="openCustomerForm('${c.id}')">✏ 編集</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete('customer','${c.id}')">🗑 削除</button>
+    </div>
+  `;
+}
+
+function renderVisits() {
+  const el = document.getElementById('visitsList');
+  if (currentVisits.length === 0) {
+    el.innerHTML = '<div class="empty-state">来店記録がありません</div>';
+    return;
+  }
+  el.innerHTML = currentVisits.map(v => `
+    <div class="visit-item">
+      <div class="visit-header">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="visit-date">${v.visit_date}</span>
+          <span style="color:#9098b8;font-size:0.82em">${v.number_of_people || 1}名</span>
+          ${v.has_trouble ? '<span class="trouble-badge">⚠ トラブルあり</span>' : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="visit-amount">¥${(v.amount || 0).toLocaleString()}</span>
+          <button class="btn btn-secondary btn-sm" onclick="openVisitForm('${v.id}')">編集</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete('visit','${v.id}')">削除</button>
+        </div>
+      </div>
+      ${v.drinks ? '<div class="visit-field"><span class="vf-label">ドリンク</span>' + v.drinks + '</div>' : ''}
+      ${v.conversation_memo ? '<div class="visit-field"><span class="vf-label">会話メモ</span>' + v.conversation_memo + '</div>' : ''}
+      ${v.next_visit_plan ? '<div class="visit-field"><span class="vf-label">次回予定</span>' + v.next_visit_plan + '</div>' : ''}
+      ${v.memo ? '<div class="visit-field"><span class="vf-label">備考</span>' + v.memo + '</div>' : ''}
+    </div>
+  `).join('');
+}
+
+function renderMemos() {
+  const el = document.getElementById('memosList');
+  if (currentMemos.length === 0) {
+    el.innerHTML = '<div class="empty-state">メモがありません</div>';
+    return;
+  }
+  el.innerHTML = currentMemos.map(m => `
+    <div class="memo-item">
+      <div class="memo-header">
+        <span class="memo-date">${new Date(m.created_at).toLocaleDateString('ja-JP', {year:'numeric',month:'long',day:'numeric'})}</span>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete('memo','${m.id}')">削除</button>
+      </div>
+      <p style="white-space:pre-wrap;color:#c0c8e0;font-size:0.88em;margin-top:4px">${m.content}</p>
+    </div>
+  `).join('');
+}
+
+// ── Customer Form ──────────────────────────────────────────
+function openCustomerForm(id = null) {
+  const c = id ? customers.find(c => c.id === id) : null;
+  document.getElementById('customerFormTitle').textContent = id ? '顧客情報を編集' : '新規顧客登録';
+  document.getElementById('cfId').value = id || '';
+  document.getElementById('cfName').value = c?.name || '';
+  document.getElementById('cfNickname').value = c?.nickname || '';
+  document.getElementById('cfGender').value = c?.gender || '';
+  document.getElementById('cfBirthday').value = c?.birthday || '';
+  document.getElementById('cfPhone').value = c?.phone || '';
+  document.getElementById('cfEmail').value = c?.email || '';
+  document.getElementById('cfSns').value = c?.sns || '';
+  document.getElementById('cfJob').value = c?.job || '';
+  document.getElementById('cfSmoking').value = c?.smoking_status || '';
+  document.getElementById('cfReferrer').value = c?.referrer || '';
+  document.getElementById('cfAddressMemo').value = c?.address_memo || '';
+  document.getElementById('cfFavoriteDrinks').value = c?.favorite_drinks || '';
+  document.getElementById('cfDislikes').value = c?.dislikes || '';
+  document.getElementById('cfTags').value = (c?.tags || []).join(', ');
+  document.getElementById('cfMemo').value = c?.memo || '';
+  document.getElementById('modalCustomerForm').classList.add('active');
+}
+
+async function saveCustomer() {
+  const id = document.getElementById('cfId').value;
+  const name = document.getElementById('cfName').value.trim();
+  if (!name) { showToast('名前は必須です', 'error'); return; }
+
+  const tags = document.getElementById('cfTags').value
+    .split(',').map(t => t.trim()).filter(Boolean);
+
+  const data = {
+    name,
+    nickname: document.getElementById('cfNickname').value.trim() || null,
+    gender: document.getElementById('cfGender').value || null,
+    birthday: document.getElementById('cfBirthday').value || null,
+    phone: document.getElementById('cfPhone').value.trim() || null,
+    email: document.getElementById('cfEmail').value.trim() || null,
+    sns: document.getElementById('cfSns').value.trim() || null,
+    job: document.getElementById('cfJob').value.trim() || null,
+    smoking_status: document.getElementById('cfSmoking').value || null,
+    referrer: document.getElementById('cfReferrer').value.trim() || null,
+    address_memo: document.getElementById('cfAddressMemo').value.trim() || null,
+    favorite_drinks: document.getElementById('cfFavoriteDrinks').value.trim() || null,
+    dislikes: document.getElementById('cfDislikes').value.trim() || null,
+    tags,
+    memo: document.getElementById('cfMemo').value.trim() || null,
+    updated_at: new Date().toISOString()
+  };
+
+  let error;
+  if (id) {
+    ({ error } = await sb.from('customers').update(data).eq('id', id));
+  } else {
+    data.created_at = new Date().toISOString();
+    ({ error } = await sb.from('customers').insert(data));
+  }
+
+  if (error) { showToast('保存に失敗しました: ' + error.message, 'error'); return; }
+
+  showToast(id ? '顧客情報を更新しました' : '顧客を登録しました', 'success');
+  closeModal('modalCustomerForm');
+  await loadCustomers();
+  if (id) {
+    // 詳細モーダルが開いていれば更新
+    const updated = customers.find(c => c.id === id);
+    if (updated) renderCustomerInfo(updated);
+  }
+}
+
+// ── Visit Form ────────────────────────────────────────────
+function openVisitForm(id = null) {
+  const v = id ? currentVisits.find(v => v.id === id) : null;
+  document.getElementById('visitFormTitle').textContent = id ? '来店記録を編集' : '来店記録を追加';
+  document.getElementById('vfId').value = id || '';
+  document.getElementById('vfDate').value = v?.visit_date || new Date().toISOString().split('T')[0];
+  document.getElementById('vfPeople').value = v?.number_of_people ?? 1;
+  document.getElementById('vfAmount').value = v?.amount ?? '';
+  document.getElementById('vfDrinks').value = v?.drinks || '';
+  document.getElementById('vfConversation').value = v?.conversation_memo || '';
+  document.getElementById('vfNextPlan').value = v?.next_visit_plan || '';
+  document.getElementById('vfTrouble').checked = v?.has_trouble || false;
+  document.getElementById('vfMemo').value = v?.memo || '';
+  document.getElementById('modalVisitForm').classList.add('active');
+}
+
+async function saveVisit() {
+  const id = document.getElementById('vfId').value;
+  const visit_date = document.getElementById('vfDate').value;
+  if (!visit_date) { showToast('来店日は必須です', 'error'); return; }
+
+  const data = {
+    customer_id: currentCustomerId,
+    visit_date,
+    number_of_people: parseInt(document.getElementById('vfPeople').value) || 1,
+    amount: parseInt(document.getElementById('vfAmount').value) || 0,
+    drinks: document.getElementById('vfDrinks').value.trim() || null,
+    conversation_memo: document.getElementById('vfConversation').value.trim() || null,
+    next_visit_plan: document.getElementById('vfNextPlan').value.trim() || null,
+    has_trouble: document.getElementById('vfTrouble').checked,
+    memo: document.getElementById('vfMemo').value.trim() || null
+  };
+
+  let error;
+  if (id) {
+    ({ error } = await sb.from('visits').update(data).eq('id', id));
+  } else {
+    data.created_at = new Date().toISOString();
+    ({ error } = await sb.from('visits').insert(data));
+  }
+
+  if (error) { showToast('保存に失敗しました: ' + error.message, 'error'); return; }
+
+  showToast(id ? '来店記録を更新しました' : '来店記録を追加しました', 'success');
+  closeModal('modalVisitForm');
+
+  const { data: visits } = await sb.from('visits').select('*').eq('customer_id', currentCustomerId).order('visit_date', { ascending: false });
+  currentVisits = visits || [];
+  renderVisits();
+}
+
+// ── Memo ──────────────────────────────────────────────────
+async function saveMemo() {
+  const content = document.getElementById('memoInput').value.trim();
+  if (!content) { showToast('メモを入力してください', 'error'); return; }
+
+  const { error } = await sb.from('memos').insert({
+    customer_id: currentCustomerId,
+    content,
+    created_at: new Date().toISOString()
+  });
+
+  if (error) { showToast('保存に失敗しました: ' + error.message, 'error'); return; }
+
+  showToast('メモを追加しました', 'success');
+  document.getElementById('memoInput').value = '';
+
+  const { data: memos } = await sb.from('memos').select('*').eq('customer_id', currentCustomerId).order('created_at', { ascending: false });
+  currentMemos = memos || [];
+  renderMemos();
+}
+
+// ── Delete ────────────────────────────────────────────────
+function confirmDelete(type, id) {
+  deleteTarget = { type, id };
+  const messages = {
+    customer: 'この顧客を削除しますか？来店記録・メモも全て削除されます。この操作は元に戻せません。',
+    visit: 'この来店記録を削除しますか？',
+    memo: 'このメモを削除しますか？'
+  };
+  document.getElementById('confirmDeleteMsg').textContent = messages[type];
+  document.getElementById('modalConfirmDelete').classList.add('active');
+}
+
+async function executeDelete() {
+  if (!deleteTarget) return;
+  const { type, id } = deleteTarget;
+
+  let error;
+  if (type === 'customer') {
+    ({ error } = await sb.from('customers').delete().eq('id', id));
+  } else if (type === 'visit') {
+    ({ error } = await sb.from('visits').delete().eq('id', id));
+  } else if (type === 'memo') {
+    ({ error } = await sb.from('memos').delete().eq('id', id));
+  }
+
+  if (error) { showToast('削除に失敗しました: ' + error.message, 'error'); return; }
+
+  closeModal('modalConfirmDelete');
+  deleteTarget = null;
+
+  if (type === 'customer') {
+    showToast('顧客を削除しました', 'success');
+    closeModal('modalCustomerDetail');
+    await loadCustomers();
+  } else if (type === 'visit') {
+    showToast('来店記録を削除しました', 'success');
+    const { data: visits } = await sb.from('visits').select('*').eq('customer_id', currentCustomerId).order('visit_date', { ascending: false });
+    currentVisits = visits || [];
+    renderVisits();
+  } else if (type === 'memo') {
+    showToast('メモを削除しました', 'success');
+    const { data: memos } = await sb.from('memos').select('*').eq('customer_id', currentCustomerId).order('created_at', { ascending: false });
+    currentMemos = memos || [];
+    renderMemos();
+  }
+}
+
+// ── UI Helpers ────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+  document.getElementById('tab' + tab).classList.add('active');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('active');
+}
+
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast toast-' + type + ' show';
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ── Event Listeners ───────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  // Enterキーでログイン
+  document.getElementById('loginPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') login();
+  });
+
+  // モーダル外クリックで閉じる
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('active');
+    });
+  });
+
+  // Escキーで最前面のモーダルを閉じる
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const open = [...document.querySelectorAll('.modal-overlay.active')];
+      if (open.length) open[open.length - 1].classList.remove('active');
+    }
+  });
+});
+</script>
+</body>
+</html>
