@@ -248,7 +248,10 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
           <div class="form-group"><label>売上合計（円）</label><input type="number" id="vpAmount" placeholder="3000" min="0"></div>
         </div>
         <div class="form-group">
-          <label>来店顧客を選択 <span style="color:#ef4444">*</span>（複数選択可）</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label style="margin-bottom:0">来店顧客を選択 <span style="color:#ef4444">*</span>（複数選択可）</label>
+            <button class="btn btn-sm" style="background:#2a2f4a;border:1px solid #3d4466;color:#a0aec0;font-size:0.78em;padding:4px 10px;border-radius:6px" onclick="openQuickCustomer()">＋ 簡易登録</button>
+          </div>
           <input type="text" id="vpSearch" placeholder="名前・ニックネームで絞り込み…" oninput="filterVpCustomers(this.value)">
           <div class="cust-check-list" id="vpCustomerList"></div>
           <div class="selected-count" id="vpSelectedCount"></div>
@@ -408,6 +411,33 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modalVisitForm')">キャンセル</button>
       <button class="btn btn-primary" onclick="saveVisit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: 簡易顧客登録 -->
+<div class="modal-overlay" id="modalQuickCustomer">
+  <div class="modal-content" style="max-width:360px">
+    <div class="modal-header">
+      <h3>簡易顧客登録</h3>
+      <button class="modal-close" onclick="closeModal('modalQuickCustomer')">×</button>
+    </div>
+    <div class="form-group">
+      <label>名前 <span style="color:#ef4444">*</span></label>
+      <input type="text" id="qcName" placeholder="山田 花子">
+    </div>
+    <div class="form-group">
+      <label>ニックネーム</label>
+      <input type="text" id="qcNickname" placeholder="ハナ">
+    </div>
+    <div class="form-group">
+      <label>顧客カラー</label>
+      <div class="color-swatches" id="qcColorSwatches"></div>
+      <input type="hidden" id="qcColor" value="#7c6af7">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalQuickCustomer')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveQuickCustomer()">登録して選択</button>
     </div>
   </div>
 </div>
@@ -816,6 +846,29 @@ function initVisitPage() {
   document.getElementById('vpDrinksList').innerHTML = '';
   addVpDrink();
   renderVpCustomerList('');
+}
+function openQuickCustomer() {
+  document.getElementById('qcName').value = '';
+  document.getElementById('qcNickname').value = '';
+  document.getElementById('qcColor').value = '#7c6af7';
+  renderColorSwatches('qcColorSwatches', 'qcColor', '#7c6af7');
+  document.getElementById('modalQuickCustomer').classList.add('active');
+  setTimeout(() => document.getElementById('qcName').focus(), 100);
+}
+async function saveQuickCustomer() {
+  const name = document.getElementById('qcName').value.trim();
+  if (!name) { showToast('名前を入力してください', 'error'); return; }
+  const color = document.getElementById('qcColor').value || '#7c6af7';
+  const nickname = document.getElementById('qcNickname').value.trim() || null;
+  const now = new Date().toISOString();
+  const { data, error } = await sb.from('customers').insert([{ name, nickname, color, created_at: now, updated_at: now }]).select().single();
+  if (error) { showToast('登録に失敗しました: ' + error.message, 'error'); return; }
+  customers.push(data);
+  vpSelectedIds.add(data.id);
+  document.getElementById('vpSelectedCount').textContent = vpSelectedIds.size + '名選択中';
+  closeModal('modalQuickCustomer');
+  renderVpCustomerList(document.getElementById('vpSearch').value);
+  showToast(name + ' を登録・選択しました', 'success');
 }
 function filterVpCustomers(q) { renderVpCustomerList(q); }
 function renderVpCustomerList(q) {
