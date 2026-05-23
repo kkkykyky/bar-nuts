@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <title>BAR 顧客管理</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -79,10 +80,31 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 .modal-close:hover { color: #e2e5f0; }
 .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; padding-top: 14px; border-top: 1px solid #252840; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .stat-card { background: #161929; border: 1px solid #252840; border-radius: 12px; padding: 16px; text-align: center; }
 .stat-label { font-size: 0.74em; color: #9098b8; margin-bottom: 5px; }
 .stat-value { font-size: 1.5em; font-weight: 700; color: #a78bfa; }
+
+/* ダッシュボード2カラム */
+.dash-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 0; }
+.dash-row .card { margin-bottom: 0; }
+
+/* 日計行 */
+.daily-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; border-bottom: 1px solid #1e2235; font-size: 0.84em; }
+.daily-row:last-child { border-bottom: none; }
+.daily-row.today .daily-date { color: #a78bfa; font-weight: 700; }
+.daily-date { width: 60px; color: #9098b8; flex-shrink: 0; }
+.daily-count { width: 40px; color: #9098b8; font-size: 0.82em; flex-shrink: 0; }
+.daily-amount { flex: 1; text-align: right; font-weight: 600; }
+
+/* CSSバーチャート（性別・年齢） */
+.css-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.82em; }
+.css-bar-label { width: 52px; color: #9098b8; flex-shrink: 0; font-size: 0.9em; }
+.css-bar-track { flex: 1; height: 10px; background: #1e2235; border-radius: 5px; overflow: hidden; }
+.css-bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s; min-width: 2px; }
+.css-bar-val { width: 90px; color: #c0c8e0; text-align: right; flex-shrink: 0; font-size: 0.85em; }
+
+@media (max-width: 680px) { .dash-row { grid-template-columns: 1fr; } }
 
 .tag-badge { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 0.77em; background: #1e1440; color: #a78bfa; border: 1px solid #3d2880; margin: 2px; }
 .search-bar { display: flex; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
@@ -205,18 +227,47 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
     <!-- DASHBOARD -->
     <div id="pageDashboard" class="page active">
+      <!-- KPI カード -->
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">総顧客数</div><div class="stat-value" id="statCustomers">—</div></div>
-        <div class="stat-card"><div class="stat-label">今月の来店回数</div><div class="stat-value" id="statMonthVisits">—</div></div>
-        <div class="stat-card"><div class="stat-label">今月の売上合計</div><div class="stat-value" id="statMonthAmount" style="font-size:1.25em">—</div></div>
+        <div class="stat-card"><div class="stat-label">今月来店回数</div><div class="stat-value" id="statMonthVisits">—</div></div>
+        <div class="stat-card"><div class="stat-label">今月売上</div><div class="stat-value" id="statMonthAmount" style="font-size:1.2em">—</div></div>
+        <div class="stat-card"><div class="stat-label">平均客単価</div><div class="stat-value" id="statAvgSpend" style="font-size:1.2em">—</div></div>
+        <div class="stat-card"><div class="stat-label">平均滞在時間</div><div class="stat-value" id="statAvgStay" style="font-size:1.2em">—</div></div>
       </div>
-      <div class="card">
-        <div class="card-title">最近の来店</div>
-        <div style="overflow-x:auto">
-          <table>
-            <thead><tr><th>来店日</th><th>顧客名</th><th>人数</th><th>売上</th><th>トラブル</th></tr></thead>
-            <tbody id="recentVisits"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
-          </table>
+
+      <!-- 月別売上グラフ -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title">月別売上（直近12ヶ月）</div>
+        <canvas id="monthlyChart" height="80"></canvas>
+      </div>
+
+      <!-- 日計 + 性別 -->
+      <div class="dash-row" style="margin-bottom:14px">
+        <div class="card">
+          <div class="card-title">日計（直近7日）</div>
+          <div id="dailySummary"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">性別分布</div>
+          <div id="genderChart"></div>
+        </div>
+      </div>
+
+      <!-- 年齢層 + 最近の来店 -->
+      <div class="dash-row" style="margin-bottom:14px">
+        <div class="card">
+          <div class="card-title">年齢層分布</div>
+          <div id="ageChart"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">最近の来店</div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead><tr><th>来店日</th><th>顧客名</th><th>人数</th><th>売上</th><th>トラブル</th></tr></thead>
+              <tbody id="recentVisits"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -246,6 +297,10 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div class="form-row">
           <div class="form-group"><label>来店日 <span style="color:#ef4444">*</span></label><input type="date" id="vpDate"></div>
           <div class="form-group"><label>売上合計（円）</label><input type="number" id="vpAmount" placeholder="3000" min="0"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>入店時刻</label><input type="time" id="vpCheckIn"></div>
+          <div class="form-group"><label>退店時刻</label><input type="time" id="vpCheckOut"></div>
         </div>
         <div class="form-group">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -507,18 +562,61 @@ function showPage(page) {
 }
 
 // ── Dashboard ──
+let monthlyChartInstance = null;
 async function loadDashboard() {
   const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
   const todayStr = today.toISOString().split('T')[0];
-  const [{ count }, { data: mv }, { data: rv }] = await Promise.all([
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString().split('T')[0];
+  const sevenDaysAgo = new Date(today.getTime() - 6 * 86400000).toISOString().split('T')[0];
+
+  const [{ count }, { data: mv }, { data: visits12m }, { data: rv }, { data: allCust }] = await Promise.all([
     sb.from('customers').select('*', { count: 'exact', head: true }),
-    sb.from('visits').select('amount').gte('visit_date', firstOfMonth).lte('visit_date', todayStr),
-    sb.from('visits').select('*, customers(name,nickname,color)').order('visit_date', { ascending: false }).limit(15)
+    sb.from('visits').select('amount,number_of_people,check_in_time,check_out_time')
+      .gte('visit_date', firstOfMonth).lte('visit_date', todayStr),
+    sb.from('visits').select('visit_date,amount,number_of_people')
+      .gte('visit_date', twelveMonthsAgo).lte('visit_date', todayStr),
+    sb.from('visits').select('*, customers(name,nickname,color)')
+      .order('visit_date', { ascending: false }).limit(10),
+    sb.from('customers').select('gender,birthday')
   ]);
+
+  // KPI
+  const monthVisits = mv || [];
+  const monthAmount = monthVisits.reduce((s, v) => s + (v.amount || 0), 0);
+  const totalPeople = monthVisits.reduce((s, v) => s + (v.number_of_people || 1), 0);
+  const avgSpend = totalPeople > 0 ? Math.round(monthAmount / totalPeople) : 0;
+
+  const stayMins = monthVisits
+    .filter(v => v.check_in_time && v.check_out_time)
+    .map(v => {
+      const [ih, im] = v.check_in_time.split(':').map(Number);
+      const [oh, om] = v.check_out_time.split(':').map(Number);
+      let d = (oh * 60 + om) - (ih * 60 + im);
+      if (d < 0) d += 1440;
+      return d;
+    });
+  const avgStay = stayMins.length > 0
+    ? Math.round(stayMins.reduce((a, b) => a + b, 0) / stayMins.length) : null;
+
   document.getElementById('statCustomers').textContent = count ?? '—';
-  document.getElementById('statMonthVisits').textContent = (mv||[]).length;
-  document.getElementById('statMonthAmount').textContent = '¥' + (mv||[]).reduce((s,v)=>s+(v.amount||0),0).toLocaleString();
+  document.getElementById('statMonthVisits').textContent = monthVisits.length;
+  document.getElementById('statMonthAmount').textContent = '¥' + monthAmount.toLocaleString();
+  document.getElementById('statAvgSpend').textContent = avgSpend > 0 ? '¥' + avgSpend.toLocaleString() : '—';
+  document.getElementById('statAvgStay').textContent = avgStay !== null
+    ? (avgStay >= 60 ? Math.floor(avgStay / 60) + 'h' + (avgStay % 60) + 'm' : avgStay + '分') : '—';
+
+  // 月別売上チャート
+  renderMonthlyChart(visits12m || []);
+
+  // 日計
+  renderDailySummary(visits12m || [], sevenDaysAgo, todayStr);
+
+  // 性別・年齢層
+  renderGenderChart(allCust || []);
+  renderAgeChart(allCust || []);
+
+  // 最近の来店
   const el = document.getElementById('recentVisits');
   if (!rv || rv.length === 0) { el.innerHTML = '<tr><td colspan="5" class="empty-state">来店記録がありません</td></tr>'; return; }
   el.innerHTML = rv.map(v => `<tr onclick="openCustomerDetail('${v.customer_id}')">
@@ -528,6 +626,103 @@ async function loadDashboard() {
     <td style="color:#34d399;font-weight:600">¥${(v.amount||0).toLocaleString()}</td>
     <td>${v.has_trouble?'<span class="trouble-badge">⚠ あり</span>':'<span style="color:#34d399;font-size:0.78em">なし</span>'}</td>
   </tr>`).join('');
+}
+
+function renderMonthlyChart(visits) {
+  const monthMap = {};
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - i);
+    monthMap[d.toISOString().slice(0, 7)] = 0;
+  }
+  visits.forEach(v => {
+    const key = v.visit_date.slice(0, 7);
+    if (key in monthMap) monthMap[key] += (v.amount || 0);
+  });
+  const labels = Object.keys(monthMap).map(k => k.slice(5).replace('-', '') + '月');
+  const data = Object.values(monthMap);
+  const ctx = document.getElementById('monthlyChart').getContext('2d');
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+  monthlyChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: 'rgba(124,106,247,0.7)', borderColor: '#7c6af7', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => '¥' + ctx.raw.toLocaleString() } }
+      },
+      scales: {
+        x: { ticks: { color: '#9098b8', font: { size: 11 } }, grid: { color: '#1e2235' } },
+        y: { ticks: { color: '#9098b8', callback: v => '¥' + v.toLocaleString() }, grid: { color: '#252840' } }
+      }
+    }
+  });
+}
+
+function renderDailySummary(visits, from, to) {
+  const dayMap = {};
+  const cur = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  while (cur <= end) {
+    dayMap[cur.toISOString().split('T')[0]] = { amount: 0, count: 0 };
+    cur.setDate(cur.getDate() + 1);
+  }
+  visits.forEach(v => { if (v.visit_date in dayMap) { dayMap[v.visit_date].amount += (v.amount||0); dayMap[v.visit_date].count++; } });
+  const days = Object.entries(dayMap).reverse();
+  document.getElementById('dailySummary').innerHTML = days.map(([date, d]) => {
+    const [, m, dd] = date.split('-');
+    const dow = ['日','月','火','水','木','金','土'][new Date(date + 'T00:00:00').getDay()];
+    return `<div class="daily-row ${date === to ? 'today' : ''}">
+      <div class="daily-date">${m}/${dd}(${dow})</div>
+      <div class="daily-count">${d.count}件</div>
+      <div class="daily-amount" style="color:${d.amount > 0 ? '#34d399' : '#9098b8'}">¥${d.amount.toLocaleString()}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderGenderChart(custs) {
+  const counts = { '女性': 0, '男性': 0, 'その他': 0, '未回答': 0 };
+  custs.forEach(c => { const g = c.gender || '未回答'; if (g in counts) counts[g]++; else counts['未回答']++; });
+  const total = custs.length || 1;
+  const colors = { '女性': '#ec4899', '男性': '#3b82f6', 'その他': '#10b981', '未回答': '#4b5563' };
+  document.getElementById('genderChart').innerHTML = Object.entries(counts).map(([label, n]) => {
+    const pct = Math.round(n / total * 100);
+    return `<div class="css-bar-row">
+      <div class="css-bar-label">${label}</div>
+      <div class="css-bar-track"><div class="css-bar-fill" style="width:${pct}%;background:${colors[label]}"></div></div>
+      <div class="css-bar-val">${n}名 (${pct}%)</div>
+    </div>`;
+  }).join('');
+}
+
+function renderAgeChart(custs) {
+  const groups = { '10代': 0, '20代': 0, '30代': 0, '40代': 0, '50代↑': 0, '不明': 0 };
+  const cy = new Date().getFullYear();
+  custs.forEach(c => {
+    const year = parseInt((c.birthday || '').split('/')[0]);
+    if (!year || isNaN(year)) { groups['不明']++; return; }
+    const age = cy - year;
+    if (age < 20) groups['10代']++;
+    else if (age < 30) groups['20代']++;
+    else if (age < 40) groups['30代']++;
+    else if (age < 50) groups['40代']++;
+    else groups['50代↑']++;
+  });
+  const total = custs.length || 1;
+  const colors = { '10代': '#a78bfa', '20代': '#7c6af7', '30代': '#3b82f6', '40代': '#06b6d4', '50代↑': '#10b981', '不明': '#4b5563' };
+  document.getElementById('ageChart').innerHTML = Object.entries(groups).map(([label, n]) => {
+    const pct = Math.round(n / total * 100);
+    return `<div class="css-bar-row">
+      <div class="css-bar-label">${label}</div>
+      <div class="css-bar-track"><div class="css-bar-fill" style="width:${pct}%;background:${colors[label]}"></div></div>
+      <div class="css-bar-val">${n}名 (${pct}%)</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Tag Master ──
@@ -836,6 +1031,8 @@ async function saveVisit() {
 function initVisitPage() {
   document.getElementById('vpDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('vpAmount').value = '';
+  document.getElementById('vpCheckIn').value = '';
+  document.getElementById('vpCheckOut').value = '';
   document.getElementById('vpConversation').value = '';
   document.getElementById('vpNextPlan').value = '';
   document.getElementById('vpTrouble').checked = false;
@@ -901,6 +1098,8 @@ async function saveBatchVisit() {
     visit_date, number_of_people: vpSelectedIds.size,
     amount: parseInt(document.getElementById('vpAmount').value)||0,
     drinks,
+    check_in_time: document.getElementById('vpCheckIn').value || null,
+    check_out_time: document.getElementById('vpCheckOut').value || null,
     conversation_memo: document.getElementById('vpConversation').value.trim()||null,
     next_visit_plan: document.getElementById('vpNextPlan').value.trim()||null,
     has_trouble: document.getElementById('vpTrouble').checked,
