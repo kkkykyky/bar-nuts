@@ -20,6 +20,14 @@ body { font-family: 'Inter', 'Noto Sans JP', sans-serif; background: #0d0f1a; co
 .login-logo p { color: #9098b8; font-size: 0.85em; margin-top: 4px; }
 .login-error { color: #ef4444; font-size: 0.85em; margin-top: 10px; text-align: center; min-height: 20px; }
 
+/* ── FAB ── */
+.fab { position: fixed; bottom: 26px; right: 26px; z-index: 1000; height: 52px; padding: 0 20px 0 16px; border-radius: 26px; background: linear-gradient(135deg, #7c6af7, #5b4fcf); color: white; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 20px rgba(124,106,247,0.55); transition: opacity 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease; font-family: inherit; }
+.fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 28px rgba(124,106,247,0.7); }
+.fab:active { transform: scale(0.96); }
+.fab-icon { font-size: 1.3em; font-weight: 700; line-height: 1; }
+.fab-label { font-size: 0.88em; font-weight: 700; white-space: nowrap; }
+.fab.scrolling { opacity: 0.25; transform: scale(0.94); box-shadow: 0 2px 8px rgba(124,106,247,0.2); pointer-events: none; }
+
 /* ── サイドバー ── */
 #appScreen { display: flex; min-height: 100vh; }
 .sidebar { width: 220px; background: linear-gradient(180deg, #13152a 0%, #0d0f1a 100%); border-right: 1px solid #252840; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
@@ -616,6 +624,12 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 <div id="toast" class="toast"></div>
 
+<!-- FAB: 来店記録 -->
+<button class="fab" id="fab" onclick="showPage('Visits')" title="来店記録を追加">
+  <span class="fab-icon">＋</span>
+  <span class="fab-label">来店記録</span>
+</button>
+
 <script>
 const SUPABASE_URL = 'https://itsnhivjbkxkgdnjxqeu.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml0c25oaXZqYmt4a2dkbmp4cWV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTQyMDksImV4cCI6MjA5NDkzMDIwOX0.K5d_4eLWFJ7S9m7wiN5zCv7KRe_ShSydN2OwAfMgjUI';
@@ -667,6 +681,23 @@ function showPage(page) {
   else if (page === 'History') loadHistory();
   else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
 }
+// ── FAB スクロール制御 ──
+(function() {
+  let timer = null;
+  const onScroll = () => {
+    const fab = document.getElementById('fab');
+    if (!fab) return;
+    fab.classList.add('scrolling');
+    clearTimeout(timer);
+    timer = setTimeout(() => fab.classList.remove('scrolling'), 700);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  document.querySelector('body') && document.addEventListener('DOMContentLoaded', () => {
+    const mc = document.querySelector('.main-content');
+    if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
+  });
+})();
+
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('open');
