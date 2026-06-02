@@ -20,14 +20,23 @@ body { font-family: 'Inter', 'Noto Sans JP', sans-serif; background: #0d0f1a; co
 .login-logo p { color: #9098b8; font-size: 0.85em; margin-top: 4px; }
 .login-error { color: #ef4444; font-size: 0.85em; margin-top: 10px; text-align: center; min-height: 20px; }
 
-.header { background: linear-gradient(135deg, #13152a 0%, #0d0f1a 100%); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #252840; box-shadow: 0 2px 20px rgba(0,0,0,0.5); position: sticky; top: 0; z-index: 100; }
-.header-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.header h1 { font-size: 1.15em; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; white-space: nowrap; }
-.nav-buttons { display: flex; gap: 5px; flex-wrap: wrap; }
-.nav-btn { background: rgba(255,255,255,0.05); color: #9098b8; border: 1px solid #252840; padding: 6px 13px; border-radius: 16px; cursor: pointer; font-size: 0.8em; transition: all 0.2s; font-family: inherit; }
-.nav-btn:hover, .nav-btn.active { background: #7c6af7; color: white; border-color: #7c6af7; box-shadow: 0 0 10px rgba(124,106,247,0.4); }
-.header-right { display: flex; align-items: center; gap: 8px; }
-.user-email { font-size: 0.78em; color: #9098b8; }
+/* ── サイドバー ── */
+#appScreen { display: flex; min-height: 100vh; }
+.sidebar { width: 220px; background: linear-gradient(180deg, #13152a 0%, #0d0f1a 100%); border-right: 1px solid #252840; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; transition: transform 0.28s cubic-bezier(.4,0,.2,1); }
+.sidebar-logo { padding: 22px 18px 18px; border-bottom: 1px solid #252840; }
+.sidebar-logo h1 { font-size: 1.18em; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.sidebar-logo p { font-size: 0.72em; color: #9098b8; margin-top: 2px; }
+.sidebar-nav { flex: 1; padding: 14px 10px; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+.nav-btn { width: 100%; text-align: left; background: none; color: #9098b8; border: none; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 0.88em; font-weight: 500; transition: all 0.18s; font-family: inherit; display: flex; align-items: center; gap: 9px; }
+.nav-btn:hover { background: rgba(124,106,247,0.12); color: #c0c8e0; }
+.nav-btn.active { background: rgba(124,106,247,0.2); color: #a78bfa; font-weight: 700; }
+.nav-icon { font-size: 1em; width: 18px; text-align: center; flex-shrink: 0; }
+.sidebar-footer { padding: 14px 16px; border-top: 1px solid #252840; }
+.user-email { display: block; font-size: 0.74em; color: #9098b8; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-content { margin-left: 220px; flex: 1; min-width: 0; }
+.hamburger { display: none; position: fixed; top: 12px; left: 12px; z-index: 300; background: #7c6af7; border: none; color: white; border-radius: 9px; width: 40px; height: 40px; font-size: 1.15em; cursor: pointer; box-shadow: 0 2px 10px rgba(124,106,247,0.5); align-items: center; justify-content: center; }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 150; backdrop-filter: blur(2px); }
+.sidebar-overlay.open { display: block; }
 
 .page { display: none; padding: 18px; max-width: 1100px; margin: 0 auto; }
 .page.active { display: block; }
@@ -202,12 +211,17 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 .tag-master-item .left { display: flex; align-items: center; gap: 9px; }
 .tag-color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 
+@media (max-width: 768px) {
+  .hamburger { display: flex; }
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { margin-left: 0; padding-top: 58px; }
+}
 @media (max-width: 600px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
   .info-grid { grid-template-columns: 1fr; }
   .info-item.wide { grid-column: span 1; }
-  .header { padding: 9px 12px; }
   .modal-content { padding: 16px; }
 }
 </style>
@@ -227,23 +241,42 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 <!-- APP -->
 <div id="appScreen" style="display:none">
-  <header class="header">
-    <div class="header-left">
+
+  <!-- ハンバーガー（モバイル） -->
+  <button class="hamburger" id="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- サイドバー -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
       <h1>🍸 BAR Nuts</h1>
-      <div class="nav-buttons">
-        <button class="nav-btn active" data-page="Dashboard" onclick="showPage('Dashboard')">ダッシュボード</button>
-        <button class="nav-btn" data-page="Customers" onclick="showPage('Customers')">顧客一覧</button>
-        <button class="nav-btn" data-page="Visits" onclick="showPage('Visits')">来店記録</button>
-        <button class="nav-btn" data-page="History" onclick="showPage('History')">来店履歴</button>
-        <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">マスタ管理</button>
-      </div>
+      <p>顧客管理システム</p>
     </div>
-    <div class="header-right">
+    <div class="sidebar-nav">
+      <button class="nav-btn active" data-page="Dashboard" onclick="showPage('Dashboard')">
+        <span class="nav-icon">📊</span>ダッシュボード
+      </button>
+      <button class="nav-btn" data-page="Customers" onclick="showPage('Customers')">
+        <span class="nav-icon">👥</span>顧客一覧
+      </button>
+      <button class="nav-btn" data-page="Visits" onclick="showPage('Visits')">
+        <span class="nav-icon">✏️</span>来店記録
+      </button>
+      <button class="nav-btn" data-page="History" onclick="showPage('History')">
+        <span class="nav-icon">📋</span>来店履歴
+      </button>
+      <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">
+        <span class="nav-icon">⚙️</span>マスタ管理
+      </button>
+    </div>
+    <div class="sidebar-footer">
       <span class="user-email" id="userEmail"></span>
-      <button class="btn btn-secondary btn-sm" onclick="logout()">ログアウト</button>
+      <button class="btn btn-secondary btn-sm" style="width:100%" onclick="logout()">ログアウト</button>
     </div>
-  </header>
-  <main>
+  </nav>
+
+  <!-- メインコンテンツ -->
+  <main class="main-content">
 
     <!-- DASHBOARD -->
     <div id="pageDashboard" class="page active">
@@ -628,10 +661,19 @@ function showPage(page) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page' + page).classList.add('active');
   document.querySelector('[data-page="' + page + '"]').classList.add('active');
+  closeSidebar();
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
   else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
 }
 
 // ── Dashboard ──
