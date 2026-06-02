@@ -106,6 +106,19 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 @media (max-width: 680px) { .dash-row { grid-template-columns: 1fr; } }
 
+/* 来店履歴リスト */
+.history-item { display:flex; gap:12px; padding:11px 4px; border-bottom:1px solid #1e2235; cursor:pointer; transition:background 0.15s; border-radius:6px; }
+.history-item:last-child { border-bottom:none; }
+.history-item:hover { background:#1a1d30; }
+.history-item-date { width:72px; flex-shrink:0; font-size:0.82em; color:#9098b8; padding-top:2px; }
+.history-item-date strong { display:block; color:#a78bfa; font-size:1.05em; }
+.history-item-body { flex:1; min-width:0; }
+.history-item-name { font-weight:700; font-size:0.9em; display:flex; align-items:center; gap:5px; }
+.history-item-meta { font-size:0.78em; color:#9098b8; margin-top:3px; display:flex; gap:10px; flex-wrap:wrap; }
+.history-item-drinks { margin-top:5px; display:flex; flex-wrap:wrap; gap:4px; }
+.history-item-memo { font-size:0.79em; color:#9098b8; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.history-item-amount { flex-shrink:0; text-align:right; font-weight:700; color:#34d399; font-size:0.9em; padding-top:2px; }
+
 /* ドリンク選択グリッド */
 .drink-select-grid { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px; border: 1px solid #252840; border-radius: 8px; min-height: 46px; margin-top: 4px; }
 .drink-toggle { padding: 6px 14px; border-radius: 16px; cursor: pointer; font-size: 0.84em; font-weight: 600; background: #1e2235; border: 1px solid #252840; color: #9098b8; transition: all 0.15s; user-select: none; }
@@ -221,6 +234,7 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <button class="nav-btn active" data-page="Dashboard" onclick="showPage('Dashboard')">ダッシュボード</button>
         <button class="nav-btn" data-page="Customers" onclick="showPage('Customers')">顧客一覧</button>
         <button class="nav-btn" data-page="Visits" onclick="showPage('Visits')">来店記録</button>
+        <button class="nav-btn" data-page="History" onclick="showPage('History')">来店履歴</button>
         <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">マスタ管理</button>
       </div>
     </div>
@@ -330,6 +344,44 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
     </div>
 
     <!-- TAGS PAGE -->
+    <!-- HISTORY PAGE -->
+    <div id="pageHistory" class="page">
+      <div class="card">
+        <div class="card-title">
+          来店履歴
+          <span class="result-count" id="historyCount"></span>
+        </div>
+        <!-- フィルター -->
+        <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
+          <div class="form-group" style="flex:1;min-width:140px;margin:0">
+            <label>顧客名で検索</label>
+            <input type="text" id="historySearch" placeholder="名前・ニックネーム…" oninput="applyHistoryFilter()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>開始日</label>
+            <input type="date" id="historyFrom" onchange="applyHistoryFilter()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>終了日</label>
+            <input type="date" id="historyTo" onchange="applyHistoryFilter()">
+          </div>
+          <div style="display:flex;align-items:flex-end;gap:7px">
+            <label class="checkbox-label" style="padding-bottom:2px">
+              <input type="checkbox" id="historyTroubleOnly" onchange="applyHistoryFilter()"> トラブルのみ
+            </label>
+            <button class="btn btn-secondary btn-sm" onclick="clearHistoryFilter()">リセット</button>
+          </div>
+        </div>
+        <!-- 集計バー -->
+        <div id="historySummaryBar" style="display:flex;gap:16px;padding:10px 14px;background:#1e2235;border-radius:8px;margin-bottom:12px;font-size:0.83em;flex-wrap:wrap"></div>
+        <!-- リスト -->
+        <div id="historyList"></div>
+        <div style="text-align:center;margin-top:12px">
+          <button class="btn btn-secondary" id="historyLoadMore" style="display:none" onclick="loadMoreHistory()">さらに読み込む</button>
+        </div>
+      </div>
+    </div>
+
     <div id="pageTags" class="page">
       <!-- タグマスタ -->
       <div class="card">
@@ -578,6 +630,7 @@ function showPage(page) {
   document.querySelector('[data-page="' + page + '"]').classList.add('active');
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
+  else if (page === 'History') loadHistory();
   else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
 }
 
@@ -778,6 +831,107 @@ function renderTagsPage() {
     </div>
     <button class="btn btn-danger btn-sm" onclick="deleteTag('${t.id}')">削除</button>
   </div>`).join('');
+}
+
+// ── Visit History ──
+let allHistoryVisits = [], historyPage = 0;
+const HISTORY_PAGE_SIZE = 30;
+
+async function loadHistory() {
+  document.getElementById('historyList').innerHTML = '<div class="empty-state">読み込み中…</div>';
+  const { data } = await sb.from('visits')
+    .select('*, customers(id,name,nickname,color)')
+    .order('visit_date', { ascending: false })
+    .order('created_at', { ascending: false });
+  allHistoryVisits = data || [];
+  historyPage = 0;
+  applyHistoryFilter();
+}
+
+function applyHistoryFilter() {
+  const q = (document.getElementById('historySearch')?.value || '').toLowerCase();
+  const from = document.getElementById('historyFrom')?.value || '';
+  const to = document.getElementById('historyTo')?.value || '';
+  const troubleOnly = document.getElementById('historyTroubleOnly')?.checked;
+
+  const filtered = allHistoryVisits.filter(v => {
+    const c = v.customers;
+    if (q && !((c?.name||'').toLowerCase().includes(q) || (c?.nickname||'').toLowerCase().includes(q))) return false;
+    if (from && v.visit_date < from) return false;
+    if (to && v.visit_date > to) return false;
+    if (troubleOnly && !v.has_trouble) return false;
+    return true;
+  });
+
+  // 集計バー
+  const totalAmount = filtered.reduce((s, v) => s + (v.amount || 0), 0);
+  const totalPeople = filtered.reduce((s, v) => s + (v.number_of_people || 1), 0);
+  const troubles = filtered.filter(v => v.has_trouble).length;
+  document.getElementById('historySummaryBar').innerHTML = [
+    `<span>📋 <strong>${filtered.length}</strong> 件</span>`,
+    `<span>💰 合計 <strong style="color:#34d399">¥${totalAmount.toLocaleString()}</strong></span>`,
+    `<span>👥 延べ <strong>${totalPeople}</strong> 名</span>`,
+    troubles > 0 ? `<span>⚠ トラブル <strong style="color:#f87171">${troubles}</strong> 件</span>` : ''
+  ].join('');
+
+  document.getElementById('historyCount').textContent = filtered.length + '件';
+
+  historyPage = 0;
+  renderHistoryList(filtered, false);
+  window._historyFiltered = filtered;
+}
+
+function renderHistoryList(filtered, append) {
+  const el = document.getElementById('historyList');
+  const slice = filtered.slice(historyPage * HISTORY_PAGE_SIZE, (historyPage + 1) * HISTORY_PAGE_SIZE);
+  const hasMore = filtered.length > (historyPage + 1) * HISTORY_PAGE_SIZE;
+  document.getElementById('historyLoadMore').style.display = hasMore ? 'inline-block' : 'none';
+
+  if (!append) el.innerHTML = '';
+  if (filtered.length === 0) { el.innerHTML = '<div class="empty-state">該当する来店記録がありません</div>'; return; }
+
+  const html = slice.map(v => {
+    const c = v.customers;
+    const [, m, d] = (v.visit_date || '').split('-');
+    const dow = ['日','月','火','水','木','金','土'][new Date(v.visit_date + 'T00:00:00').getDay()];
+    const drinks = v.drinks ? v.drinks.split('\n').filter(Boolean) : [];
+    const timeStr = v.check_in_time ? v.check_in_time.slice(0,5) + (v.check_out_time ? '〜' + v.check_out_time.slice(0,5) : '') : '';
+    return `<div class="history-item" onclick="openCustomerDetail('${c?.id}')">
+      <div class="history-item-date">
+        <strong>${m}/${d}</strong>${dow}曜
+        ${v.has_trouble ? '<span class="trouble-badge" style="margin-top:4px;display:inline-block">⚠</span>' : ''}
+      </div>
+      <div class="history-item-body">
+        <div class="history-item-name">
+          <span class="cust-dot" style="background:${c?.color||'#7c6af7'}"></span>
+          ${c?.name||'—'}${c?.nickname ? ' <span style="color:#9098b8;font-size:0.85em">('+c.nickname+')</span>' : ''}
+        </div>
+        <div class="history-item-meta">
+          ${v.number_of_people > 1 ? '<span>👥 '+v.number_of_people+'名</span>' : ''}
+          ${timeStr ? '<span>🕐 '+timeStr+'</span>' : ''}
+        </div>
+        ${drinks.length ? `<div class="history-item-drinks">${drinks.map(d=>`<span class="drink-chip">${d}</span>`).join('')}</div>` : ''}
+        ${v.conversation_memo ? `<div class="history-item-memo">💬 ${v.conversation_memo}</div>` : ''}
+      </div>
+      <div class="history-item-amount">¥${(v.amount||0).toLocaleString()}</div>
+    </div>`;
+  }).join('');
+
+  if (append) el.insertAdjacentHTML('beforeend', html);
+  else el.innerHTML = html;
+}
+
+function loadMoreHistory() {
+  historyPage++;
+  renderHistoryList(window._historyFiltered || [], true);
+}
+
+function clearHistoryFilter() {
+  document.getElementById('historySearch').value = '';
+  document.getElementById('historyFrom').value = '';
+  document.getElementById('historyTo').value = '';
+  document.getElementById('historyTroubleOnly').checked = false;
+  applyHistoryFilter();
 }
 
 // ── Drink Master ──
