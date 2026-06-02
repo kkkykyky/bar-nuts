@@ -330,8 +330,12 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div class="card-title">タグ管理</div>
         <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
           <div class="form-group" style="flex:1;min-width:130px;margin:0"><label>タグ名</label><input type="text" id="newTagName" placeholder="VIP、常連、誕生日…" onkeydown="if(event.key==='Enter')saveTag()"></div>
-          <div class="form-group" style="margin:0"><label>カラー</label><input type="color" id="newTagColor" value="#7c6af7" style="width:52px;height:36px;padding:2px 3px;border-radius:6px;border:1px solid #252840;background:#1e2235;cursor:pointer"></div>
           <button class="btn btn-primary" onclick="saveTag()" style="align-self:flex-end">追加</button>
+        </div>
+        <div class="form-group" style="margin-bottom:16px">
+          <label>カラー</label>
+          <div class="color-swatches" id="tagColorSwatches"></div>
+          <input type="hidden" id="newTagColor" value="#7c6af7">
         </div>
         <div id="tagMasterList"></div>
       </div>
@@ -558,7 +562,7 @@ function showPage(page) {
   document.querySelector('[data-page="' + page + '"]').classList.add('active');
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
-  else if (page === 'Tags') renderTagsPage();
+  else if (page === 'Tags') { renderTagsPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
 }
 
 // ── Dashboard ──
@@ -737,6 +741,7 @@ async function saveTag() {
   const { error } = await sb.from('tag_master').insert({ name, color });
   if (error) { showToast(error.code === '23505' ? 'そのタグ名は既に存在します' : '保存に失敗しました', 'error'); return; }
   document.getElementById('newTagName').value = '';
+  renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7');
   showToast('タグを追加しました', 'success');
   await loadTagMaster(); renderTagsPage();
 }
@@ -828,14 +833,17 @@ function getSnsValue() {
 }
 
 // ── Color swatches ──
-function renderColorSwatches(sel) {
+function renderColorSwatches(containerId, hiddenId, sel) {
+  // 後方互換: 引数1つの場合は顧客フォーム用
+  if (hiddenId === undefined) { sel = containerId; containerId = 'cfColorSwatches'; hiddenId = 'cfColor'; }
   const s = sel || '#7c6af7';
-  document.getElementById('cfColorSwatches').innerHTML = COLORS.map(c =>
-    `<div class="color-swatch ${c===s?'selected':''}" style="background:${c}" onclick="selectColor('${c}')"></div>`
+  document.getElementById(containerId).innerHTML = COLORS.map(c =>
+    `<div class="color-swatch ${c===s?'selected':''}" style="background:${c}" onclick="selectColorFor('${containerId}','${hiddenId}','${c}')"></div>`
   ).join('');
-  document.getElementById('cfColor').value = s;
+  document.getElementById(hiddenId).value = s;
 }
-function selectColor(c) { renderColorSwatches(c); }
+function selectColorFor(containerId, hiddenId, c) { renderColorSwatches(containerId, hiddenId, c); }
+function selectColor(c) { renderColorSwatches('cfColorSwatches', 'cfColor', c); }
 
 // ── Tag checkboxes ──
 function renderTagCheckboxes(selected) {
