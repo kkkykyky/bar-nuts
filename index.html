@@ -123,6 +123,40 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 @media (max-width: 680px) { .dash-row { grid-template-columns: 1fr; } }
 
+/* ── カレンダー ── */
+.cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cal-title { font-size: 1em; font-weight: 700; color: #e2e5f0; }
+.cal-nav { display: flex; gap: 5px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-dow { text-align: center; font-size: 0.7em; color: #9098b8; font-weight: 700; padding: 4px 0; }
+.cal-dow:first-child { color: #f87171; }
+.cal-dow:last-child { color: #60a5fa; }
+.cal-cell { min-height: 70px; background: #1e2235; border-radius: 8px; padding: 6px 5px 5px; cursor: pointer; transition: background 0.15s; position: relative; border: 1.5px solid transparent; }
+.cal-cell:hover { background: #252840; }
+.cal-cell.other-month { opacity: 0.28; cursor: default; pointer-events: none; }
+.cal-cell.today { border-color: #7c6af7; }
+.cal-cell.has-visit { background: rgba(124,106,247,0.12); }
+.cal-cell-date { font-size: 0.77em; font-weight: 700; color: #9098b8; }
+.cal-cell.today .cal-cell-date { color: #a78bfa; }
+.cal-cell.has-visit .cal-cell-date { color: #e2e5f0; }
+.cal-cell:first-child .cal-cell-date, .cal-cell:nth-child(7n+1) .cal-cell-date { color: #f87171; }
+.cal-cell:nth-child(7n) .cal-cell-date { color: #60a5fa; }
+.cal-visit-info { font-size: 0.66em; color: #a78bfa; font-weight: 600; margin-top: 2px; }
+.cal-amount { font-size: 0.62em; color: #34d399; }
+.cal-staff-row { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
+.cal-staff-pip { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+@media (max-width: 600px) {
+  .cal-cell { min-height: 52px; padding: 4px 3px; }
+  .cal-amount { display: none; }
+}
+
+/* 日別詳細モーダル */
+.day-detail-visit { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #252840; font-size: 0.84em; }
+.day-detail-visit:last-child { border-bottom: none; }
+.shift-toggle { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; cursor: pointer; border: 1px solid #252840; background: #1e2235; transition: all 0.15s; }
+.shift-toggle.active { background: rgba(16,185,129,0.15); border-color: #10b981; }
+.shift-pip { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
 /* 来店履歴リスト */
 .history-item { display:flex; gap:12px; padding:11px 4px; border-bottom:1px solid #1e2235; cursor:pointer; transition:background 0.15s; border-radius:6px; }
 .history-item:last-child { border-bottom:none; }
@@ -288,6 +322,25 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
     <!-- DASHBOARD -->
     <div id="pageDashboard" class="page active">
+      <!-- カレンダー -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="cal-header">
+          <div class="cal-title" id="calTitle"></div>
+          <div class="cal-nav">
+            <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(-1)">◀</button>
+            <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(0)">今月</button>
+            <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(1)">▶</button>
+          </div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <!-- 凡例 -->
+        <div style="display:flex;gap:14px;margin-top:10px;font-size:0.74em;color:#9098b8;flex-wrap:wrap">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(124,106,247,0.3);display:inline-block"></span>来店あり</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;border:1.5px solid #7c6af7;display:inline-block"></span>今日</span>
+          <span id="calStaffLegend" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+        </div>
+      </div>
+
       <!-- KPI カード -->
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-label">総顧客数</div><div class="stat-value" id="statCustomers">—</div></div>
@@ -448,6 +501,21 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         </div>
         <div id="drinkMasterList"></div>
       </div>
+
+      <!-- スタッフマスタ -->
+      <div class="card">
+        <div class="card-title">スタッフマスタ</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:8px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:130px;margin:0"><label>スタッフ名</label><input type="text" id="newStaffName" placeholder="山田、田中…" onkeydown="if(event.key==='Enter')saveStaff()"></div>
+          <button class="btn btn-primary" onclick="saveStaff()" style="align-self:flex-end">追加</button>
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>カラー</label>
+          <div class="color-swatches" id="staffColorSwatches"></div>
+          <input type="hidden" id="newStaffColor" value="#10b981">
+        </div>
+        <div id="staffMasterList"></div>
+      </div>
     </div>
 
   </main>
@@ -583,6 +651,32 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
   </div>
 </div>
 
+<!-- MODAL: 日別詳細 -->
+<div class="modal-overlay" id="modalDayDetail">
+  <div class="modal-content" style="max-width:480px">
+    <div class="modal-header">
+      <h3 id="dayDetailTitle"></h3>
+      <button class="modal-close" onclick="closeModal('modalDayDetail')">×</button>
+    </div>
+    <!-- 出勤スタッフ -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:0.78em;color:#9098b8;font-weight:600;margin-bottom:7px">出勤スタッフ</div>
+      <div id="dayDetailShifts" style="display:flex;flex-wrap:wrap;gap:7px">
+        <span style="font-size:0.82em;color:#9098b8">スタッフ未登録</span>
+      </div>
+    </div>
+    <!-- 来店記録 -->
+    <div>
+      <div style="font-size:0.78em;color:#9098b8;font-weight:600;margin-bottom:7px">来店記録</div>
+      <div id="dayDetailVisits"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modalDayDetail')">閉じる</button>
+      <button class="btn btn-primary" id="dayDetailAddVisit" onclick="">＋ 来店記録を追加</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: 簡易顧客登録 -->
 <div class="modal-overlay" id="modalQuickCustomer">
   <div class="modal-content" style="max-width:360px">
@@ -637,7 +731,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COLORS = ['#7c6af7','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#a78bfa'];
 
-let customers = [], tagMaster = [], drinkMaster = [];
+let customers = [], tagMaster = [], drinkMaster = [], staffList = [];
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+let calVisitMap = {}, calShiftMap = {};
 let currentCustomerId = null, currentVisits = [], currentMemos = [];
 let searchQuery = '', activeTagFilter = '', deleteTarget = null;
 let vpSelectedIds = new Set(), vpSelectedDrinks = new Set();
@@ -653,7 +749,7 @@ async function showApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userEmail').textContent = user.email;
-  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadCustomers()]);
+  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadStaff(), loadCustomers()]);
   loadDashboard();
 }
 
@@ -679,7 +775,7 @@ function showPage(page) {
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
-  else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
+  else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderStaffMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981'); }
 }
 // ── FAB スクロール制御 ──
 (function() {
@@ -761,6 +857,9 @@ async function loadDashboard() {
   // 性別・年齢層
   renderGenderChart(allCust || []);
   renderAgeChart(allCust || []);
+
+  // カレンダー（月が変わっていない場合は再取得、初回はデフォルト今月）
+  loadCalendarData();
 
   // 最近の来店
   const el = document.getElementById('recentVisits');
@@ -903,6 +1002,177 @@ function renderTagsPage() {
       <span class="tag-badge" style="background:${t.color}20;color:${t.color};border-color:${t.color}50">${t.name}</span>
     </div>
     <button class="btn btn-danger btn-sm" onclick="deleteTag('${t.id}')">削除</button>
+  </div>`).join('');
+}
+
+// ── Calendar ──
+async function loadCalendarData() {
+  const firstDay = new Date(calYear, calMonth, 1).toISOString().split('T')[0];
+  const lastDay  = new Date(calYear, calMonth + 1, 0).toISOString().split('T')[0];
+  const [{ data: visits }, { data: shifts }] = await Promise.all([
+    sb.from('visits').select('visit_date, amount, number_of_people, customers(name,color)')
+      .gte('visit_date', firstDay).lte('visit_date', lastDay),
+    sb.from('shifts').select('shift_date, staff_id, staff(name,color)')
+      .gte('shift_date', firstDay).lte('shift_date', lastDay)
+  ]);
+  // 日付ごとにまとめる
+  calVisitMap = {};
+  (visits || []).forEach(v => {
+    if (!calVisitMap[v.visit_date]) calVisitMap[v.visit_date] = { visits: [], amount: 0, people: 0 };
+    calVisitMap[v.visit_date].visits.push(v);
+    calVisitMap[v.visit_date].amount += v.amount || 0;
+    calVisitMap[v.visit_date].people += v.number_of_people || 1;
+  });
+  calShiftMap = {};
+  (shifts || []).forEach(s => {
+    if (!calShiftMap[s.shift_date]) calShiftMap[s.shift_date] = [];
+    calShiftMap[s.shift_date].push(s);
+  });
+  renderCalendar();
+}
+function renderCalendar() {
+  const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const DOWS = ['日','月','火','水','木','金','土'];
+  document.getElementById('calTitle').textContent = calYear + '年 ' + MONTHS[calMonth];
+
+  // 凡例
+  document.getElementById('calStaffLegend').innerHTML = staffList.map(s =>
+    `<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.name}</span>`
+  ).join('');
+
+  const firstDate = new Date(calYear, calMonth, 1);
+  const lastDate  = new Date(calYear, calMonth + 1, 0);
+  const todayStr  = new Date().toISOString().split('T')[0];
+
+  let html = DOWS.map(d => `<div class="cal-dow">${d}</div>`).join('');
+
+  // 前月の空白
+  for (let i = 0; i < firstDate.getDay(); i++) html += '<div class="cal-cell other-month"></div>';
+
+  for (let d = 1; d <= lastDate.getDate(); d++) {
+    const ds = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    const vd = calVisitMap[ds];
+    const sd = calShiftMap[ds] || [];
+    const isToday = ds === todayStr;
+    const dow = new Date(ds + 'T00:00:00').getDay();
+    const dateColor = dow === 0 ? 'color:#f87171' : dow === 6 ? 'color:#60a5fa' : '';
+    html += `<div class="cal-cell${vd ? ' has-visit' : ''}${isToday ? ' today' : ''}" onclick="openDayDetail('${ds}')">
+      <div class="cal-cell-date" style="${dateColor}">${d}</div>
+      ${vd ? `<div class="cal-visit-info">${vd.people}名</div><div class="cal-amount">¥${vd.amount.toLocaleString()}</div>` : ''}
+      ${sd.length ? `<div class="cal-staff-row">${sd.map(s => `<div class="cal-staff-pip" style="background:${s.staff?.color||'#10b981'}" title="${s.staff?.name||''}"></div>`).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  // 後月の空白
+  const endDow = lastDate.getDay();
+  for (let i = endDow + 1; i < 7; i++) html += '<div class="cal-cell other-month"></div>';
+
+  document.getElementById('calGrid').innerHTML = html;
+}
+async function changeCalMonth(delta) {
+  if (delta === 0) { calYear = new Date().getFullYear(); calMonth = new Date().getMonth(); }
+  else {
+    calMonth += delta;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0)  { calMonth = 11; calYear--; }
+  }
+  await loadCalendarData();
+}
+async function openDayDetail(ds) {
+  const [y, m, d] = ds.split('-');
+  const dow = ['日','月','火','水','木','金','土'][new Date(ds + 'T00:00:00').getDay()];
+  document.getElementById('dayDetailTitle').textContent = `${y}年${parseInt(m)}月${parseInt(d)}日（${dow}）`;
+
+  // 来店記録
+  const vd = calVisitMap[ds];
+  const visitHtml = vd && vd.visits.length
+    ? vd.visits.map(v => `<div class="day-detail-visit">
+        <span class="cust-dot" style="background:${v.customers?.color||'#7c6af7'}"></span>
+        <span style="flex:1;font-weight:600">${v.customers?.name||'—'}</span>
+        <span style="color:#34d399;font-weight:700">¥${(v.amount||0).toLocaleString()}</span>
+      </div>`).join('')
+    : '<div style="font-size:0.84em;color:#9098b8;padding:8px 0">来店記録なし</div>';
+  document.getElementById('dayDetailVisits').innerHTML = visitHtml;
+
+  // スタッフシフト
+  const shiftsOnDay = (calShiftMap[ds] || []).map(s => s.staff_id);
+  if (staffList.length === 0) {
+    document.getElementById('dayDetailShifts').innerHTML = '<span style="font-size:0.82em;color:#9098b8">スタッフ未登録（マスタ管理から追加）</span>';
+  } else {
+    document.getElementById('dayDetailShifts').innerHTML = staffList.map(s => {
+      const active = shiftsOnDay.includes(s.id);
+      return `<div class="shift-toggle${active ? ' active' : ''}" onclick="toggleShift('${s.id}','${ds}',this)">
+        <div class="shift-pip" style="background:${s.color}"></div>
+        <span style="font-size:0.86em;font-weight:600">${s.name}</span>
+        <span style="font-size:0.75em;color:${active ? '#10b981' : '#9098b8'}">${active ? '出勤' : '—'}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // 「来店記録を追加」ボタンに日付を渡す
+  document.getElementById('dayDetailAddVisit').onclick = () => {
+    closeModal('modalDayDetail');
+    showPage('Visits');
+    setTimeout(() => { document.getElementById('vpDate').value = ds; }, 100);
+  };
+
+  document.getElementById('modalDayDetail').classList.add('active');
+}
+async function toggleShift(staffId, dateStr, el) {
+  const active = el.classList.contains('active');
+  if (active) {
+    await sb.from('shifts').delete().eq('staff_id', staffId).eq('shift_date', dateStr);
+  } else {
+    await sb.from('shifts').insert({ staff_id: staffId, shift_date: dateStr });
+  }
+  // ローカルの calShiftMap を更新
+  if (!calShiftMap[dateStr]) calShiftMap[dateStr] = [];
+  if (active) {
+    calShiftMap[dateStr] = calShiftMap[dateStr].filter(s => s.staff_id !== staffId);
+  } else {
+    const staff = staffList.find(s => s.id === staffId);
+    calShiftMap[dateStr].push({ staff_id: staffId, staff });
+  }
+  renderCalendar();
+  // ボタン状態更新
+  el.classList.toggle('active');
+  const label = el.querySelector('span:last-child');
+  label.textContent = el.classList.contains('active') ? '出勤' : '—';
+  label.style.color = el.classList.contains('active') ? '#10b981' : '#9098b8';
+}
+
+// ── Staff Master ──
+async function loadStaff() {
+  const { data } = await sb.from('staff').select('*').order('name');
+  staffList = data || [];
+}
+async function saveStaff() {
+  const name = document.getElementById('newStaffName').value.trim();
+  if (!name) { showToast('スタッフ名を入力してください', 'error'); return; }
+  const color = document.getElementById('newStaffColor').value || '#10b981';
+  const { error } = await sb.from('staff').insert({ name, color });
+  if (error) { showToast(error.code === '23505' ? 'そのスタッフ名は既に存在します' : '保存に失敗しました', 'error'); return; }
+  document.getElementById('newStaffName').value = '';
+  renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981');
+  showToast(name + ' を追加しました', 'success');
+  await loadStaff(); renderStaffMasterPage();
+}
+async function deleteStaff(id) {
+  const { error } = await sb.from('staff').delete().eq('id', id);
+  if (error) { showToast('削除に失敗しました', 'error'); return; }
+  showToast('スタッフを削除しました', 'success');
+  await loadStaff(); renderStaffMasterPage();
+}
+function renderStaffMasterPage() {
+  const el = document.getElementById('staffMasterList');
+  if (!el) return;
+  if (!staffList.length) { el.innerHTML = '<div class="empty-state">スタッフが登録されていません</div>'; return; }
+  el.innerHTML = staffList.map(s => `<div class="tag-master-item">
+    <div class="left">
+      <div class="tag-color-dot" style="background:${s.color}"></div>
+      <span style="font-weight:600;color:#e2e5f0">${s.name}</span>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">削除</button>
   </div>`).join('');
 }
 
