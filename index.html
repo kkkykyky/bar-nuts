@@ -106,6 +106,12 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 @media (max-width: 680px) { .dash-row { grid-template-columns: 1fr; } }
 
+/* ドリンク選択グリッド */
+.drink-select-grid { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px; border: 1px solid #252840; border-radius: 8px; min-height: 46px; margin-top: 4px; }
+.drink-toggle { padding: 6px 14px; border-radius: 16px; cursor: pointer; font-size: 0.84em; font-weight: 600; background: #1e2235; border: 1px solid #252840; color: #9098b8; transition: all 0.15s; user-select: none; }
+.drink-toggle:hover { border-color: #7c6af7; color: #c0c8e0; }
+.drink-toggle.selected { background: #1e1440; border-color: #7c6af7; color: #a78bfa; box-shadow: 0 0 0 1px rgba(124,106,247,0.3); }
+
 .tag-badge { display: inline-block; padding: 3px 9px; border-radius: 10px; font-size: 0.77em; background: #1e1440; color: #a78bfa; border: 1px solid #3d2880; margin: 2px; }
 .search-bar { display: flex; gap: 9px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
 .search-bar input { flex: 1; min-width: 160px; padding: 8px 11px; border: 1px solid #252840; border-radius: 7px; font-size: 0.86em; background: #1e2235; color: #e2e5f0; font-family: inherit; }
@@ -215,7 +221,7 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <button class="nav-btn active" data-page="Dashboard" onclick="showPage('Dashboard')">ダッシュボード</button>
         <button class="nav-btn" data-page="Customers" onclick="showPage('Customers')">顧客一覧</button>
         <button class="nav-btn" data-page="Visits" onclick="showPage('Visits')">来店記録</button>
-        <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">タグ管理</button>
+        <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">マスタ管理</button>
       </div>
     </div>
     <div class="header-right">
@@ -312,9 +318,8 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
           <div class="selected-count" id="vpSelectedCount"></div>
         </div>
         <div class="form-group">
-          <label>注文ドリンク（1行ずつ追加）</label>
-          <div id="vpDrinksList"></div>
-          <button class="btn-add-row" onclick="addVpDrink()">＋ ドリンクを追加</button>
+          <label>注文ドリンク <span style="color:#9098b8;font-weight:400;font-size:0.9em">（タップして選択・複数可）</span></label>
+          <div class="drink-select-grid" id="vpDrinkGrid"><span style="color:#9098b8;font-size:0.82em;align-self:center">「マスタ管理」からドリンクを追加してください</span></div>
         </div>
         <div class="form-group"><label>会話メモ</label><textarea id="vpConversation" rows="3" placeholder="話した内容…"></textarea></div>
         <div class="form-group"><label>次回来店予定</label><input type="text" id="vpNextPlan" placeholder="来月また来る予定など…"></div>
@@ -326,8 +331,9 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
     <!-- TAGS PAGE -->
     <div id="pageTags" class="page">
+      <!-- タグマスタ -->
       <div class="card">
-        <div class="card-title">タグ管理</div>
+        <div class="card-title">タグマスタ</div>
         <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
           <div class="form-group" style="flex:1;min-width:130px;margin:0"><label>タグ名</label><input type="text" id="newTagName" placeholder="VIP、常連、誕生日…" onkeydown="if(event.key==='Enter')saveTag()"></div>
           <button class="btn btn-primary" onclick="saveTag()" style="align-self:flex-end">追加</button>
@@ -338,6 +344,16 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
           <input type="hidden" id="newTagColor" value="#7c6af7">
         </div>
         <div id="tagMasterList"></div>
+      </div>
+
+      <!-- ドリンクマスタ -->
+      <div class="card">
+        <div class="card-title">ドリンクマスタ</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:160px;margin:0"><label>ドリンク名</label><input type="text" id="newDrinkName" placeholder="ハイボール、ビール、赤ワイン…" onkeydown="if(event.key==='Enter')saveDrink()"></div>
+          <button class="btn btn-primary" onclick="saveDrink()" style="align-self:flex-end">追加</button>
+        </div>
+        <div id="drinkMasterList"></div>
       </div>
     </div>
 
@@ -522,10 +538,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COLORS = ['#7c6af7','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#a78bfa'];
 
-let customers = [], tagMaster = [];
+let customers = [], tagMaster = [], drinkMaster = [];
 let currentCustomerId = null, currentVisits = [], currentMemos = [];
 let searchQuery = '', activeTagFilter = '', deleteTarget = null;
-let vpSelectedIds = new Set();
+let vpSelectedIds = new Set(), vpSelectedDrinks = new Set();
 
 // ── Init ──
 async function init() {
@@ -538,7 +554,7 @@ async function showApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userEmail').textContent = user.email;
-  await Promise.all([loadTagMaster(), loadCustomers()]);
+  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadCustomers()]);
   loadDashboard();
 }
 
@@ -562,7 +578,7 @@ function showPage(page) {
   document.querySelector('[data-page="' + page + '"]').classList.add('active');
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
-  else if (page === 'Tags') { renderTagsPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
+  else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); }
 }
 
 // ── Dashboard ──
@@ -762,6 +778,51 @@ function renderTagsPage() {
     </div>
     <button class="btn btn-danger btn-sm" onclick="deleteTag('${t.id}')">削除</button>
   </div>`).join('');
+}
+
+// ── Drink Master ──
+async function loadDrinkMaster() {
+  const { data } = await sb.from('drink_master').select('*').order('sort_order').order('name');
+  drinkMaster = data || [];
+}
+async function saveDrink() {
+  const name = document.getElementById('newDrinkName').value.trim();
+  if (!name) { showToast('ドリンク名を入力してください', 'error'); return; }
+  const { error } = await sb.from('drink_master').insert({ name, sort_order: drinkMaster.length * 10 });
+  if (error) { showToast(error.code === '23505' ? 'そのドリンク名は既に存在します' : '保存に失敗しました', 'error'); return; }
+  document.getElementById('newDrinkName').value = '';
+  showToast(name + ' を追加しました', 'success');
+  await loadDrinkMaster(); renderDrinkMasterPage(); renderVpDrinkGrid();
+}
+async function deleteDrink(id) {
+  const { error } = await sb.from('drink_master').delete().eq('id', id);
+  if (error) { showToast('削除に失敗しました', 'error'); return; }
+  showToast('ドリンクを削除しました', 'success');
+  await loadDrinkMaster(); renderDrinkMasterPage(); renderVpDrinkGrid();
+}
+function renderDrinkMasterPage() {
+  const el = document.getElementById('drinkMasterList');
+  if (!el) return;
+  if (!drinkMaster.length) { el.innerHTML = '<div class="empty-state">ドリンクがありません。上のフォームから追加してください。</div>'; return; }
+  el.innerHTML = drinkMaster.map(d => `<div class="tag-master-item">
+    <span style="font-weight:600;color:#e2e5f0">${d.name}</span>
+    <button class="btn btn-danger btn-sm" onclick="deleteDrink('${d.id}')">削除</button>
+  </div>`).join('');
+}
+function renderVpDrinkGrid() {
+  const el = document.getElementById('vpDrinkGrid');
+  if (!el) return;
+  if (!drinkMaster.length) {
+    el.innerHTML = '<span style="color:#9098b8;font-size:0.82em;align-self:center">「マスタ管理」からドリンクを追加してください</span>';
+    return;
+  }
+  el.innerHTML = drinkMaster.map(d =>
+    `<div class="drink-toggle ${vpSelectedDrinks.has(d.name) ? 'selected' : ''}" onclick="toggleVpDrink(this,'${d.name.replace(/'/g,'\\\'')}')">${d.name}</div>`
+  ).join('');
+}
+function toggleVpDrink(el, name) {
+  if (vpSelectedDrinks.has(name)) { vpSelectedDrinks.delete(name); el.classList.remove('selected'); }
+  else { vpSelectedDrinks.add(name); el.classList.add('selected'); }
 }
 
 // ── Customers ──
@@ -1048,8 +1109,8 @@ function initVisitPage() {
   document.getElementById('vpSearch').value = '';
   vpSelectedIds.clear();
   document.getElementById('vpSelectedCount').textContent = '';
-  document.getElementById('vpDrinksList').innerHTML = '';
-  addVpDrink();
+  vpSelectedDrinks.clear();
+  renderVpDrinkGrid();
   renderVpCustomerList('');
 }
 function openQuickCustomer() {
@@ -1101,7 +1162,7 @@ async function saveBatchVisit() {
   if (!vpSelectedIds.size) { showToast('顧客を選択してください', 'error'); return; }
   const visit_date = document.getElementById('vpDate').value;
   if (!visit_date) { showToast('来店日を入力してください', 'error'); return; }
-  const drinks = [...document.querySelectorAll('.vp-drink-input')].map(i=>i.value.trim()).filter(Boolean).join('\n')||null;
+  const drinks = [...vpSelectedDrinks].join('\n') || null;
   const base = {
     visit_date, number_of_people: vpSelectedIds.size,
     amount: parseInt(document.getElementById('vpAmount').value)||0,
