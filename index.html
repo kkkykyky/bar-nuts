@@ -517,6 +517,16 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div id="drinkMasterList"></div>
       </div>
 
+      <!-- 職業マスタ -->
+      <div class="card">
+        <div class="card-title">職業マスタ</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:160px;margin:0"><label>職業名</label><input type="text" id="newJobName" placeholder="会社員、自営業、学生…" onkeydown="if(event.key==='Enter')saveJob()"></div>
+          <button class="btn btn-primary" onclick="saveJob()" style="align-self:flex-end">追加</button>
+        </div>
+        <div id="jobMasterList"></div>
+      </div>
+
       <!-- スタッフマスタ -->
       <div class="card">
         <div class="card-title">スタッフマスタ</div>
@@ -620,7 +630,11 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
     </div>
 
     <div class="form-row">
-      <div class="form-group"><label>職業</label><input type="text" id="cfJob" placeholder="会社員"></div>
+      <div class="form-group">
+          <label>職業</label>
+          <div class="drink-select-grid" id="cfJobGrid" style="min-height:38px"></div>
+          <input type="hidden" id="cfJob" value="">
+        </div>
       <div class="form-group"><label>紹介者</label><input type="text" id="cfReferrer" placeholder="紹介してくれた方"></div>
     </div>
     <div class="form-group"><label>住所メモ</label><input type="text" id="cfAddressMemo" placeholder="〇〇区在住など"></div>
@@ -746,7 +760,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const COLORS = ['#7c6af7','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#a78bfa'];
 
-let customers = [], tagMaster = [], drinkMaster = [], staffList = [];
+let customers = [], tagMaster = [], drinkMaster = [], jobMaster = [], staffList = [];
 let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
 let calVisitMap = {}, calShiftMap = {};
 let currentCustomerId = null, currentVisits = [], currentMemos = [];
@@ -764,7 +778,7 @@ async function showApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userEmail').textContent = user.email;
-  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadStaff(), loadCustomers()]);
+  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadJobMaster(), loadStaff(), loadCustomers()]);
   loadDashboard();
 }
 
@@ -790,7 +804,7 @@ function showPage(page) {
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
-  else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderStaffMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981'); }
+  else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderJobMasterPage(); renderStaffMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981'); }
 }
 // ── FAB スクロール制御 ──
 (function() {
@@ -1354,6 +1368,55 @@ function clearHistoryFilter() {
   applyHistoryFilter();
 }
 
+// ── Job Master ──
+async function loadJobMaster() {
+  const { data } = await sb.from('job_master').select('*').order('sort_order').order('name');
+  jobMaster = data || [];
+}
+async function saveJob() {
+  const name = document.getElementById('newJobName').value.trim();
+  if (!name) { showToast('職業名を入力してください', 'error'); return; }
+  const { error } = await sb.from('job_master').insert({ name, sort_order: jobMaster.length * 10 });
+  if (error) { showToast(error.code === '23505' ? 'その職業名は既に存在します' : '保存に失敗しました', 'error'); return; }
+  document.getElementById('newJobName').value = '';
+  showToast(name + ' を追加しました', 'success');
+  await loadJobMaster(); renderJobMasterPage();
+}
+async function deleteJob(id) {
+  const { error } = await sb.from('job_master').delete().eq('id', id);
+  if (error) { showToast('削除に失敗しました', 'error'); return; }
+  showToast('職業を削除しました', 'success');
+  await loadJobMaster(); renderJobMasterPage();
+}
+function renderJobMasterPage() {
+  const el = document.getElementById('jobMasterList');
+  if (!el) return;
+  if (!jobMaster.length) { el.innerHTML = '<div class="empty-state">職業がありません。上のフォームから追加してください。</div>'; return; }
+  el.innerHTML = jobMaster.map(j => `<div class="tag-master-item">
+    <span style="font-weight:600;color:#e2e5f0">${j.name}</span>
+    <button class="btn btn-danger btn-sm" onclick="deleteJob('${j.id}')">削除</button>
+  </div>`).join('');
+}
+function renderJobBadges(selected) {
+  const el = document.getElementById('cfJobGrid');
+  if (!el) return;
+  document.getElementById('cfJob').value = selected;
+  if (!jobMaster.length) {
+    el.innerHTML = '<span style="color:#9098b8;font-size:0.82em;align-self:center">「マスタ管理」から職業を追加してください</span>';
+    return;
+  }
+  el.innerHTML = jobMaster.map(j =>
+    `<div class="drink-toggle ${j.name === selected ? 'selected' : ''}" onclick="selectJob(this,'${j.name.replace(/'/g,'\\\'')}')">${j.name}</div>`
+  ).join('');
+}
+function selectJob(el, name) {
+  const current = document.getElementById('cfJob').value;
+  const next = current === name ? '' : name;   // 再タップで解除
+  document.getElementById('cfJob').value = next;
+  document.querySelectorAll('#cfJobGrid .drink-toggle').forEach(b => b.classList.remove('selected'));
+  if (next) el.classList.add('selected');
+}
+
 // ── Drink Master ──
 async function loadDrinkMaster() {
   const { data } = await sb.from('drink_master').select('*').order('sort_order').order('name');
@@ -1603,7 +1666,7 @@ function openCustomerForm(id=null) {
   setBirthdayFields(c?.birthday);
   document.getElementById('cfPhone').value = c?.phone||'';
   document.getElementById('cfEmail').value = c?.email||'';
-  document.getElementById('cfJob').value = c?.job||'';
+  renderJobBadges(c?.job||'');
   document.getElementById('cfReferrer').value = c?.referrer||'';
   document.getElementById('cfAddressMemo').value = c?.address_memo||'';
   document.getElementById('cfFavoriteDrinks').value = c?.favorite_drinks||'';
