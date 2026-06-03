@@ -162,6 +162,18 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 
 @media (max-width: 680px) { .dash-row { grid-template-columns: 1fr; } }
 
+/* 折りたたみセクション */
+.dash-toggle { cursor: pointer; user-select: none; }
+.dash-toggle:hover { opacity: 0.8; }
+.dash-chevron { font-size: 0.7em; color: #9098b8; transition: transform 0.2s; display: inline-block; }
+.dash-chevron.closed { transform: rotate(180deg); }
+
+/* 誕生日バナー */
+.birthday-banner { background: linear-gradient(135deg,rgba(236,72,153,0.15),rgba(124,106,247,0.15)); border: 1px solid rgba(236,72,153,0.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.birthday-banner-title { font-size: 0.82em; font-weight: 700; color: #f9a8d4; white-space: nowrap; }
+.birthday-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(236,72,153,0.15); border: 1px solid rgba(236,72,153,0.3); border-radius: 20px; padding: 3px 10px; font-size: 0.8em; cursor: pointer; }
+.birthday-chip:hover { background: rgba(236,72,153,0.25); }
+
 /* ── カレンダー ── */
 .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .cal-title { font-size: 1em; font-weight: 700; color: #e2e5f0; }
@@ -403,46 +415,44 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div class="stat-card"><div class="stat-label">平均滞在時間</div><div class="stat-value" id="statAvgStay" style="font-size:1.2em">—</div></div>
       </div>
 
-      <!-- 月別売上グラフ -->
+      <!-- 今月誕生日 -->
+      <div id="birthdayBanner"></div>
+
+      <!-- 最近の来店（常に表示） -->
       <div class="card" style="margin-bottom:14px">
-        <div class="card-title">月別売上（直近12ヶ月）</div>
-        <canvas id="monthlyChart" height="80"></canvas>
+        <div class="card-title">最近の来店</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>来店日</th><th>顧客名</th><th>人数</th><th>売上</th><th>ドリンク</th></tr></thead>
+            <tbody id="recentVisits"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- 曜日別統計 -->
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-title">曜日別統計</div>
-        <canvas id="dowChart" height="75"></canvas>
-        <div id="dowBreakdown"></div>
-      </div>
-
-      <!-- 日計 + 性別 -->
+      <!-- 折りたたみセクション群 -->
       <div class="dash-row" style="margin-bottom:14px">
         <div class="card">
-          <div class="card-title">日計（直近7日）</div>
-          <div id="dailySummary"></div>
+          <div class="card-title dash-toggle" onclick="toggleDashSection('secDaily')">日計（直近7日）<span class="dash-chevron" id="chevSecDaily">▲</span></div>
+          <div id="secDaily"><div id="dailySummary"></div></div>
         </div>
         <div class="card">
-          <div class="card-title">性別分布</div>
-          <div id="genderChart"></div>
-        </div>
-      </div>
-
-      <!-- 年齢層 + 最近の来店 -->
-      <div class="dash-row" style="margin-bottom:14px">
-        <div class="card">
-          <div class="card-title">年齢層分布</div>
-          <div id="ageChart"></div>
-        </div>
-        <div class="card">
-          <div class="card-title">最近の来店</div>
-          <div style="overflow-x:auto">
-            <table>
-              <thead><tr><th>来店日</th><th>顧客名</th><th>人数</th><th>売上</th><th>トラブル</th></tr></thead>
-              <tbody id="recentVisits"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
-            </table>
+          <div class="card-title dash-toggle" onclick="toggleDashSection('secGender')">性別 / 年齢層<span class="dash-chevron" id="chevSecGender">▲</span></div>
+          <div id="secGender">
+            <div style="margin-bottom:12px"><div style="font-size:0.75em;color:#9098b8;margin-bottom:6px">性別</div><div id="genderChart"></div></div>
+            <div><div style="font-size:0.75em;color:#9098b8;margin-bottom:6px">年齢層</div><div id="ageChart"></div></div>
           </div>
         </div>
+      </div>
+
+      <!-- グラフ類（折りたたみ） -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title dash-toggle" onclick="toggleDashSection('secMonthly')">月別売上（直近12ヶ月）<span class="dash-chevron" id="chevSecMonthly">▲</span></div>
+        <div id="secMonthly"><canvas id="monthlyChart" height="80"></canvas></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title dash-toggle" onclick="toggleDashSection('secDow')">曜日別統計<span class="dash-chevron" id="chevSecDow">▲</span></div>
+        <div id="secDow"><canvas id="dowChart" height="75"></canvas><div id="dowBreakdown"></div></div>
       </div>
     </div>
 
@@ -457,7 +467,7 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div class="tag-filter-bar" id="tagFilterBtns"></div>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>名前</th><th>性別</th><th>職業</th><th>年齢</th><th>タグ</th></tr></thead>
+            <thead><tr><th>名前</th><th>性別</th><th>年齢</th><th>来店回数</th><th>最終来店</th><th>タグ</th></tr></thead>
             <tbody id="customerList"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
           </table>
         </div>
@@ -489,10 +499,18 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
           <label>注文ドリンク <span style="color:#9098b8;font-weight:400;font-size:0.9em">（タップして選択・複数可）</span></label>
           <div class="drink-select-grid" id="vpDrinkGrid"><span style="color:#9098b8;font-size:0.82em;align-self:center">「マスタ管理」からドリンクを追加してください</span></div>
         </div>
-        <div class="form-group"><label>会話メモ</label><textarea id="vpConversation" rows="3" placeholder="話した内容…"></textarea></div>
-        <div class="form-group"><label>次回来店予定</label><input type="text" id="vpNextPlan" placeholder="来月また来る予定など…"></div>
-        <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="vpTrouble"> トラブルあり</label></div>
-        <div class="form-group"><label>備考</label><textarea id="vpMemo" rows="2" placeholder="その他メモ…"></textarea></div>
+        <div class="form-group"><label>会話メモ</label><textarea id="vpConversation" rows="2" placeholder="話した内容…"></textarea></div>
+        <!-- 詳細項目（折りたたみ） -->
+        <div style="margin-bottom:10px">
+          <button type="button" class="btn-add-row" onclick="toggleVpDetail(this)" style="width:100%;text-align:center">
+            ▼ 詳細項目（次回予定・トラブル・備考）
+          </button>
+          <div id="vpDetailFields" style="display:none;margin-top:8px">
+            <div class="form-group"><label>次回来店予定</label><input type="text" id="vpNextPlan" placeholder="来月また来る予定など…"></div>
+            <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="vpTrouble"> トラブルあり</label></div>
+            <div class="form-group"><label>備考</label><textarea id="vpMemo" rows="2" placeholder="その他メモ…"></textarea></div>
+          </div>
+        </div>
         <button class="btn btn-primary" onclick="saveBatchVisit()" style="width:100%;padding:12px;font-size:0.95em">来店記録を保存</button>
       </div>
     </div>
@@ -928,6 +946,9 @@ function showPage(page) {
   document.getElementById('page' + page).classList.add('active');
   document.querySelector('[data-page="' + page + '"]').classList.add('active');
   closeSidebar();
+  // FABはAI・シフトページでは非表示
+  const fab = document.getElementById('fab');
+  if (fab) fab.style.display = ['AI','Shifts'].includes(page) ? 'none' : 'flex';
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
@@ -952,6 +973,19 @@ function showPage(page) {
   });
 })();
 
+function toggleDashSection(id) {
+  const el = document.getElementById(id);
+  const chevron = document.getElementById('chev' + id.charAt(0).toUpperCase() + id.slice(1));
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  if (chevron) chevron.classList.toggle('closed', !hidden);
+}
+function toggleVpDetail(btn) {
+  const el = document.getElementById('vpDetailFields');
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? 'block' : 'none';
+  btn.textContent = hidden ? '▲ 詳細項目を閉じる' : '▼ 詳細項目（次回予定・トラブル・備考）';
+}
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('open');
@@ -976,7 +1010,7 @@ async function loadDashboard() {
       .gte('visit_date', firstOfMonth).lte('visit_date', todayStr),
     sb.from('visits').select('visit_date,amount,number_of_people')
       .gte('visit_date', twelveMonthsAgo).lte('visit_date', todayStr),
-    sb.from('visits').select('*, customers(name,nickname,color)')
+    sb.from('visits').select('*, customers(name,nickname,color,birthday)')
       .order('visit_date', { ascending: false }).limit(10),
     sb.from('customers').select('gender,birthday'),
     sb.from('visits').select('visit_date,amount,customers(gender,birthday,job)')
@@ -1020,21 +1054,52 @@ async function loadDashboard() {
   renderGenderChart(allCust || []);
   renderAgeChart(allCust || []);
 
-  // カレンダー（月が変わっていない場合は再取得、初回はデフォルト今月）
+  // 誕生日バナー
+  renderBirthdayBanner(allCust || []);
+
+  // カレンダー
   loadCalendarData();
 
   // 最近の来店
   const el = document.getElementById('recentVisits');
   if (!rv || rv.length === 0) { el.innerHTML = '<tr><td colspan="5" class="empty-state">来店記録がありません</td></tr>'; return; }
-  el.innerHTML = rv.map(v => `<tr onclick="openCustomerDetail('${v.customer_id}')">
-    <td>${v.visit_date}</td>
-    <td><span class="cust-dot" style="background:${v.customers?.color||'#7c6af7'}"></span><strong>${v.customers?.name||'—'}</strong>${v.customers?.nickname?' <span style="color:#9098b8;font-size:0.78em">('+v.customers.nickname+')</span>':''}</td>
-    <td>${v.number_of_people||1}名</td>
-    <td style="color:#34d399;font-weight:600">¥${(v.amount||0).toLocaleString()}</td>
-    <td>${v.has_trouble?'<span class="trouble-badge">⚠ あり</span>':'<span style="color:#34d399;font-size:0.78em">なし</span>'}</td>
-  </tr>`).join('');
+  el.innerHTML = rv.map(v => {
+    const drinks = v.drinks ? v.drinks.split('\n').filter(Boolean).slice(0,2).map(d=>`<span class="drink-chip">${d}</span>`).join('') : '<span style="color:#9098b8;font-size:0.78em">—</span>';
+    return `<tr onclick="openCustomerDetail('${v.customer_id}')">
+      <td>${v.visit_date}</td>
+      <td><span class="cust-dot" style="background:${v.customers?.color||'#7c6af7'}"></span><strong>${v.customers?.name||'—'}</strong>${v.customers?.nickname?' <span style="color:#9098b8;font-size:0.78em">('+v.customers.nickname+')</span>':''}</td>
+      <td>${v.number_of_people||1}名</td>
+      <td style="color:#34d399;font-weight:600">¥${(v.amount||0).toLocaleString()}</td>
+      <td>${drinks}</td>
+    </tr>`;
+  }).join('');
 }
 
+function renderBirthdayBanner(custs) {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  const today = now.getDate();
+  const banner = document.getElementById('birthdayBanner');
+  const targets = custs.filter(c => {
+    if (!c.birthday) return false;
+    const parts = c.birthday.split('/');
+    return parseInt(parts[1]) === m;
+  }).map(c => {
+    const d = parseInt((c.birthday.split('/'))[2]) || 0;
+    return { ...c, bDay: d, isToday: d === today };
+  }).sort((a, b) => a.bDay - b.bDay);
+
+  if (!targets.length) { banner.innerHTML = ''; return; }
+  banner.innerHTML = `<div class="birthday-banner">
+    <span class="birthday-banner-title">🎂 今月の誕生日</span>
+    ${targets.map(c => `
+      <span class="birthday-chip" onclick="openCustomerDetail('${c.id}')">
+        <span class="cust-dot" style="background:${c.color||'#7c6af7'}"></span>
+        ${c.name}${c.bDay ? ' <span style="color:#9098b8">'+c.bDay+'日</span>' : ''}
+        ${c.isToday ? '<span style="color:#ec4899;font-weight:700">🎉今日</span>' : ''}
+      </span>`).join('')}
+  </div>`;
+}
 function renderDowChart(visits) {
   const DOWS = ['日','月','火','水','木','金','土'];
   const DOW_COLORS = ['#f87171','#a78bfa','#a78bfa','#a78bfa','#a78bfa','#a78bfa','#60a5fa'];
@@ -1939,10 +2004,20 @@ function toggleVpDrink(el, name) {
 }
 
 // ── Customers ──
+let customerVisitStats = {}; // { customerId: { count, lastDate } }
 async function loadCustomers() {
-  const { data, error } = await sb.from('customers').select('*').order('created_at', { ascending: false });
+  const [{ data, error }, { data: vstats }] = await Promise.all([
+    sb.from('customers').select('*').order('created_at', { ascending: false }),
+    sb.from('visits').select('customer_id, visit_date').order('visit_date', { ascending: false })
+  ]);
   if (error) { showToast('顧客データの読み込みに失敗しました', 'error'); return; }
   customers = data || [];
+  // 来店回数・最終来店日を集計
+  customerVisitStats = {};
+  (vstats || []).forEach(v => {
+    if (!customerVisitStats[v.customer_id]) customerVisitStats[v.customer_id] = { count: 0, lastDate: v.visit_date };
+    customerVisitStats[v.customer_id].count++;
+  });
   renderCustomers(); renderTagFilter();
 }
 function onSearch(v) { searchQuery = v; renderCustomers(); }
@@ -1957,12 +2032,23 @@ function renderCustomers() {
   if (!filtered.length) { el.innerHTML = '<tr><td colspan="5" class="empty-state">顧客が見つかりません</td></tr>'; return; }
   el.innerHTML = filtered.map(c => {
     const age = calcAge(c.birthday);
-    const ageStr = age !== null ? age + '歳' : '';
+    const vs = customerVisitStats[c.id];
+    const daysSince = vs?.lastDate ? Math.floor((new Date() - new Date(vs.lastDate + 'T00:00:00')) / 86400000) : null;
+    const lastVisitStr = daysSince === null ? '<span style="color:#9098b8">—</span>'
+      : daysSince === 0 ? '<span style="color:#34d399">今日</span>'
+      : daysSince <= 7 ? `<span style="color:#34d399">${daysSince}日前</span>`
+      : daysSince <= 30 ? `<span style="color:#f59e0b">${daysSince}日前</span>`
+      : `<span style="color:#9098b8">${daysSince}日前</span>`;
+    // 今月誕生日バッジ
+    const bm = c.birthday ? parseInt(c.birthday.split('/')[1]) : 0;
+    const thisMonth = new Date().getMonth() + 1;
+    const bdgBadge = bm === thisMonth ? '<span style="font-size:0.75em;margin-left:4px">🎂</span>' : '';
     return `<tr onclick="openCustomerDetail('${c.id}')">
-      <td><span class="cust-dot" style="background:${c.color||'#7c6af7'}"></span><strong>${c.name||''}</strong>${c.nickname?'<br><span style="color:#9098b8;font-size:0.78em">'+c.nickname+'</span>':''}</td>
+      <td><span class="cust-dot" style="background:${c.color||'#7c6af7'}"></span><strong>${c.name||''}</strong>${bdgBadge}${c.nickname?'<br><span style="color:#9098b8;font-size:0.78em">'+c.nickname+'</span>':''}</td>
       <td>${c.gender||''}</td>
-      <td>${c.job||''}</td>
-      <td>${ageStr}</td>
+      <td>${age !== null ? age+'歳' : ''}</td>
+      <td style="font-weight:600;color:${(vs?.count||0)>=5?'#a78bfa':'#c0c8e0'}">${vs?.count||0}回</td>
+      <td>${lastVisitStr}</td>
       <td>${(c.tags||[]).map(t=>{const tm=tagMaster.find(x=>x.name===t);return`<span class="tag-badge" style="background:${tm?tm.color+'20':'#1e1440'};color:${tm?tm.color:'#a78bfa'};border-color:${tm?tm.color+'50':'#3d2880'}">${t}</span>`}).join('')}</td>
     </tr>`;
   }).join('');
