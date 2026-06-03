@@ -1482,7 +1482,7 @@ ${d.topDrinks.length>0 ? d.topDrinks.map(([n,c],i)=>`${i+1}. ${n}（${c}回）`)
 
 async function callClaudeAPI(prompt) {
   if (!aiApiKey) throw new Error('APIキーが未設定です');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${aiApiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${aiApiKey}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
