@@ -20,6 +20,16 @@ body { font-family: 'Inter', 'Noto Sans JP', sans-serif; background: #0d0f1a; co
 .login-logo p { color: #9098b8; font-size: 0.85em; margin-top: 4px; }
 .login-error { color: #ef4444; font-size: 0.85em; margin-top: 10px; text-align: center; min-height: 20px; }
 
+/* ── シフト管理 ── */
+.shift-staff-row { display:flex; align-items:center; gap:10px; padding:10px 12px; background:#1e2235; border-radius:9px; border:1px solid #252840; flex-wrap:wrap; }
+.shift-staff-toggle { display:flex; align-items:center; gap:8px; cursor:pointer; min-width:100px; flex-shrink:0; }
+.shift-staff-toggle input[type=checkbox] { width:16px; height:16px; accent-color:#7c6af7; cursor:pointer; }
+.shift-staff-name { font-weight:600; font-size:0.88em; }
+.shift-time-inputs { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.shift-time-inputs input[type=time] { padding:5px 8px; border:1px solid #252840; border-radius:6px; background:#13152a; color:#e2e5f0; font-size:0.84em; font-family:inherit; }
+.shift-time-inputs input[type=time]:disabled { opacity:0.3; }
+.shift-time-sep { color:#9098b8; font-size:0.8em; }
+
 /* ── AIチャット ── */
 .chat-msg { display: flex; gap: 8px; align-items: flex-start; }
 .chat-msg.user { flex-direction: row-reverse; }
@@ -344,6 +354,9 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
       <button class="nav-btn" data-page="History" onclick="showPage('History')">
         <span class="nav-icon">📋</span>来店履歴
       </button>
+      <button class="nav-btn" data-page="Shifts" onclick="showPage('Shifts')">
+        <span class="nav-icon">🗓️</span>シフト管理
+      </button>
       <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">
         <span class="nav-icon">⚙️</span>マスタ管理
       </button>
@@ -521,6 +534,36 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
           <button class="btn btn-secondary" id="historyLoadMore" style="display:none" onclick="loadMoreHistory()">さらに読み込む</button>
         </div>
       </div>
+    </div>
+
+    <!-- SHIFTS PAGE -->
+    <div id="pageShifts" class="page">
+
+      <!-- 出勤登録カード -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title">
+          出勤登録
+          <input type="date" id="shiftDate" style="background:#1e2235;border:1px solid #252840;color:#e2e5f0;border-radius:7px;padding:5px 10px;font-size:0.82em;font-family:inherit">
+        </div>
+        <div id="shiftStaffList" style="display:flex;flex-direction:column;gap:8px">
+          <div class="empty-state">スタッフを登録してください（マスタ管理から）</div>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" onclick="saveShifts()">出勤を保存</button>
+        </div>
+      </div>
+
+      <!-- 直近シフト一覧 -->
+      <div class="card">
+        <div class="card-title">直近のシフト</div>
+        <div style="overflow-x:auto">
+          <table id="shiftHistoryTable">
+            <thead><tr><th>日付</th><th>スタッフ</th><th>入店</th><th>退勤</th><th></th></tr></thead>
+            <tbody id="shiftHistoryBody"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
 
     <div id="pageTags" class="page">
@@ -888,6 +931,7 @@ function showPage(page) {
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
+  else if (page === 'Shifts') loadShiftsPage();
   else if (page === 'AI') loadAIPage();
   else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderJobMasterPage(); renderStaffMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981'); }
 }
@@ -1315,6 +1359,122 @@ async function toggleShift(staffId, dateStr, el) {
   const label = el.querySelector('span:last-child');
   label.textContent = el.classList.contains('active') ? '出勤' : '—';
   label.style.color = el.classList.contains('active') ? '#10b981' : '#9098b8';
+}
+
+// ── Shifts Page ──
+let shiftPageData = {}; // { staffId: { checked, checkIn, checkOut } }
+
+async function loadShiftsPage() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('shiftDate').value = today;
+  document.getElementById('shiftDate').onchange = () => loadShiftDateData();
+  await loadShiftDateData();
+  await loadShiftHistory();
+}
+
+async function loadShiftDateData() {
+  const date = document.getElementById('shiftDate').value;
+  if (!date || !staffList.length) return;
+
+  // その日の既存シフトを取得
+  const { data: existing } = await sb.from('shifts').select('*').eq('shift_date', date);
+  const existingMap = {};
+  (existing || []).forEach(s => { existingMap[s.staff_id] = s; });
+
+  shiftPageData = {};
+  const el = document.getElementById('shiftStaffList');
+
+  if (!staffList.length) {
+    el.innerHTML = '<div class="empty-state">スタッフを登録してください（マスタ管理から）</div>';
+    return;
+  }
+
+  el.innerHTML = staffList.map(s => {
+    const ex = existingMap[s.id];
+    const checked = !!ex;
+    shiftPageData[s.id] = { checked, checkIn: ex?.check_in_time?.slice(0,5)||'', checkOut: ex?.check_out_time?.slice(0,5)||'', existingId: ex?.id||null };
+    return `<div class="shift-staff-row" id="shiftRow_${s.id}">
+      <div class="shift-staff-toggle">
+        <input type="checkbox" id="shiftCb_${s.id}" ${checked?'checked':''} onchange="toggleShiftRow('${s.id}',this.checked)">
+        <span class="cust-dot" style="background:${s.color}"></span>
+        <span class="shift-staff-name">${s.name}</span>
+      </div>
+      <div class="shift-time-inputs">
+        <span class="shift-time-sep">入店</span>
+        <input type="time" id="shiftIn_${s.id}" value="${ex?.check_in_time?.slice(0,5)||''}" ${!checked?'disabled':''}>
+        <span class="shift-time-sep">〜 退勤</span>
+        <input type="time" id="shiftOut_${s.id}" value="${ex?.check_out_time?.slice(0,5)||''}" ${!checked?'disabled':''}>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleShiftRow(staffId, checked) {
+  shiftPageData[staffId].checked = checked;
+  document.getElementById(`shiftIn_${staffId}`).disabled = !checked;
+  document.getElementById(`shiftOut_${staffId}`).disabled = !checked;
+  const row = document.getElementById(`shiftRow_${staffId}`);
+  row.style.borderColor = checked ? '#7c6af7' : '#252840';
+}
+
+async function saveShifts() {
+  const date = document.getElementById('shiftDate').value;
+  if (!date) { showToast('日付を選択してください', 'error'); return; }
+
+  let saved = 0, errors = 0;
+  for (const s of staffList) {
+    const d = shiftPageData[s.id];
+    if (!d) continue;
+    const checkIn = document.getElementById(`shiftIn_${s.id}`)?.value || null;
+    const checkOut = document.getElementById(`shiftOut_${s.id}`)?.value || null;
+
+    if (d.checked) {
+      const payload = { staff_id: s.id, shift_date: date, check_in_time: checkIn||null, check_out_time: checkOut||null };
+      const { error } = d.existingId
+        ? await sb.from('shifts').update(payload).eq('id', d.existingId)
+        : await sb.from('shifts').insert(payload);
+      if (error) errors++; else saved++;
+    } else if (d.existingId) {
+      const { error } = await sb.from('shifts').delete().eq('id', d.existingId);
+      if (error) errors++;
+    }
+  }
+
+  if (errors) showToast('一部保存に失敗しました', 'error');
+  else showToast(`${date} のシフトを保存しました`, 'success');
+
+  await loadShiftDateData();
+  await loadShiftHistory();
+  if (document.getElementById('calGrid')) loadCalendarData();
+}
+
+async function loadShiftHistory() {
+  const from = new Date(Date.now() - 13 * 86400000).toISOString().split('T')[0];
+  const to   = new Date().toISOString().split('T')[0];
+  const { data } = await sb.from('shifts').select('*, staff(name,color)')
+    .gte('shift_date', from).lte('shift_date', to)
+    .order('shift_date', { ascending: false }).order('staff(name)');
+
+  const tbody = document.getElementById('shiftHistoryBody');
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">シフト記録がありません</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(s => `<tr>
+    <td>${s.shift_date}</td>
+    <td><span class="cust-dot" style="background:${s.staff?.color||'#10b981'}"></span>${s.staff?.name||'—'}</td>
+    <td>${s.check_in_time?.slice(0,5)||'—'}</td>
+    <td>${s.check_out_time?.slice(0,5)||'—'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteShiftRecord('${s.id}')">削除</button></td>
+  </tr>`).join('');
+}
+
+async function deleteShiftRecord(id) {
+  const { error } = await sb.from('shifts').delete().eq('id', id);
+  if (error) { showToast('削除に失敗しました', 'error'); return; }
+  showToast('削除しました', 'success');
+  await loadShiftDateData();
+  await loadShiftHistory();
 }
 
 // ── Staff Master ──
