@@ -20,6 +20,20 @@ body { font-family: 'Inter', 'Noto Sans JP', sans-serif; background: #0d0f1a; co
 .login-logo p { color: #9098b8; font-size: 0.85em; margin-top: 4px; }
 .login-error { color: #ef4444; font-size: 0.85em; margin-top: 10px; text-align: center; min-height: 20px; }
 
+/* ── AI分析 ── */
+.ai-report { font-size: 0.88em; line-height: 1.75; color: #c0c8e0; }
+.ai-report h2 { color: #a78bfa; font-size: 1.05em; margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #252840; }
+.ai-report h3 { color: #c0c8e0; font-size: 0.95em; margin: 14px 0 5px; }
+.ai-report strong { color: #e2e5f0; }
+.ai-report ul, .ai-report ol { padding-left: 18px; margin: 6px 0; }
+.ai-report li { margin-bottom: 4px; }
+.ai-report table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+.ai-report td, .ai-report th { padding: 5px 10px; border: 1px solid #252840; font-size: 0.9em; }
+.ai-report th { background: #1e2235; color: #9098b8; }
+.ai-loading { display: flex; flex-direction: column; align-items: center; padding: 48px; gap: 14px; color: #9098b8; }
+.ai-spinner { width: 36px; height: 36px; border: 3px solid #252840; border-top-color: #7c6af7; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── FAB ── */
 .fab { position: fixed; bottom: 26px; right: 26px; z-index: 1000; height: 52px; padding: 0 20px 0 16px; border-radius: 26px; background: linear-gradient(135deg, #7c6af7, #5b4fcf); color: white; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 20px rgba(124,106,247,0.55); transition: opacity 0.35s ease, transform 0.35s ease, box-shadow 0.35s ease; font-family: inherit; }
 .fab:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 28px rgba(124,106,247,0.7); }
@@ -318,6 +332,9 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
       <button class="nav-btn" data-page="Tags" onclick="showPage('Tags')">
         <span class="nav-icon">⚙️</span>マスタ管理
       </button>
+      <button class="nav-btn" data-page="AI" onclick="showPage('AI')" style="margin-top:8px;background:rgba(124,106,247,0.1);border:1px solid rgba(124,106,247,0.3)">
+        <span class="nav-icon">✨</span>AI分析
+      </button>
     </div>
     <div class="sidebar-footer">
       <span class="user-email" id="userEmail"></span>
@@ -541,6 +558,47 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         </div>
         <div id="staffMasterList"></div>
       </div>
+    </div>
+
+    <!-- AI分析 PAGE -->
+    <div id="pageAI" class="page">
+
+      <!-- APIキー設定 -->
+      <div class="card" id="aiKeyCard">
+        <div class="card-title">🔑 Claude API キー設定</div>
+        <p style="font-size:0.84em;color:#9098b8;margin-bottom:12px">
+          <a href="https://console.anthropic.com" target="_blank" style="color:#a78bfa">console.anthropic.com</a> でAPIキーを取得して入力してください。キーはSupabaseに保存され、どのデバイスからでも使えます。
+        </p>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="aiApiKeyInput" placeholder="sk-ant-..." style="flex:1;padding:9px 12px;border:1px solid #252840;border-radius:8px;background:#1e2235;color:#e2e5f0;font-family:monospace;font-size:0.88em">
+          <button class="btn btn-primary" onclick="saveApiKey()">保存</button>
+          <button class="btn btn-secondary" id="aiKeyToggle" onclick="toggleApiKeyVisibility()" title="表示/非表示">👁</button>
+        </div>
+        <div id="aiKeyStatus" style="font-size:0.78em;margin-top:8px"></div>
+      </div>
+
+      <!-- 分析実行 -->
+      <div class="card">
+        <div class="card-title">
+          ✨ AI経営分析
+          <div style="display:flex;gap:7px;align-items:center">
+            <select id="aiPeriodSelect" style="background:#1e2235;border:1px solid #252840;color:#c0c8e0;border-radius:6px;padding:4px 8px;font-size:0.8em;font-family:inherit">
+              <option value="1">直近1ヶ月</option>
+              <option value="3" selected>直近3ヶ月</option>
+              <option value="6">直近6ヶ月</option>
+              <option value="12">直近12ヶ月</option>
+            </select>
+            <button class="btn btn-primary" id="aiRunBtn" onclick="runAIAnalysis()">分析を実行</button>
+          </div>
+        </div>
+        <div id="aiResult">
+          <div style="text-align:center;padding:40px;color:#9098b8">
+            <div style="font-size:2em;margin-bottom:12px">✨</div>
+            <div style="font-size:0.88em">「分析を実行」を押すと、AIが経営データを分析してレポートを作成します</div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   </main>
@@ -778,7 +836,7 @@ async function showApp(user) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   document.getElementById('userEmail').textContent = user.email;
-  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadJobMaster(), loadStaff(), loadCustomers()]);
+  await Promise.all([loadTagMaster(), loadDrinkMaster(), loadJobMaster(), loadStaff(), loadCustomers(), loadSettings()]);
   loadDashboard();
 }
 
@@ -804,6 +862,7 @@ function showPage(page) {
   if (page === 'Dashboard') loadDashboard();
   else if (page === 'Visits') initVisitPage();
   else if (page === 'History') loadHistory();
+  else if (page === 'AI') loadAIPage();
   else if (page === 'Tags') { renderTagsPage(); renderDrinkMasterPage(); renderJobMasterPage(); renderStaffMasterPage(); renderColorSwatches('tagColorSwatches', 'newTagColor', '#7c6af7'); renderColorSwatches('staffColorSwatches', 'newStaffColor', '#10b981'); }
 }
 // ── FAB スクロール制御 ──
@@ -1265,6 +1324,203 @@ function renderStaffMasterPage() {
     </div>
     <button class="btn btn-danger btn-sm" onclick="deleteStaff('${s.id}')">削除</button>
   </div>`).join('');
+}
+
+// ── AI Analysis ──
+let aiApiKey = '';
+
+async function loadSettings() {
+  const { data } = await sb.from('settings').select('key,value');
+  const keyRow = (data || []).find(r => r.key === 'claude_api_key');
+  aiApiKey = keyRow?.value || '';
+}
+async function loadAIPage() {
+  await loadSettings();
+  const input = document.getElementById('aiApiKeyInput');
+  if (aiApiKey) {
+    input.value = aiApiKey;
+    document.getElementById('aiKeyStatus').innerHTML = '<span style="color:#10b981">✓ APIキーが設定されています</span>';
+  } else {
+    document.getElementById('aiKeyStatus').innerHTML = '<span style="color:#f59e0b">⚠ APIキーが未設定です</span>';
+  }
+}
+async function saveApiKey() {
+  const val = document.getElementById('aiApiKeyInput').value.trim();
+  if (!val) { showToast('APIキーを入力してください', 'error'); return; }
+  const { error } = await sb.from('settings').upsert({ key: 'claude_api_key', value: val, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) { showToast('保存に失敗しました', 'error'); return; }
+  aiApiKey = val;
+  document.getElementById('aiKeyStatus').innerHTML = '<span style="color:#10b981">✓ 保存しました</span>';
+  showToast('APIキーを保存しました', 'success');
+}
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('aiApiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function runAIAnalysis() {
+  if (!aiApiKey) { showToast('先にAPIキーを設定してください', 'error'); return; }
+  const btn = document.getElementById('aiRunBtn');
+  btn.disabled = true;
+  btn.textContent = '分析中…';
+  document.getElementById('aiResult').innerHTML = `
+    <div class="ai-loading">
+      <div class="ai-spinner"></div>
+      <div>データを収集してAIに送信中…</div>
+    </div>`;
+  try {
+    const months = parseInt(document.getElementById('aiPeriodSelect').value);
+    const data = await collectAnalysisData(months);
+    const prompt = buildAnalysisPrompt(data, months);
+    const report = await callClaudeAPI(prompt);
+    document.getElementById('aiResult').innerHTML = `
+      <div style="font-size:0.75em;color:#9098b8;margin-bottom:12px;text-align:right">分析日時: ${new Date().toLocaleString('ja-JP')} / 対象期間: 直近${months}ヶ月</div>
+      <div class="ai-report">${renderMarkdown(report)}</div>`;
+  } catch (e) {
+    document.getElementById('aiResult').innerHTML = `<div style="color:#ef4444;padding:20px;text-align:center">エラー: ${e.message}</div>`;
+    showToast('分析に失敗しました', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '分析を実行';
+  }
+}
+
+async function collectAnalysisData(months) {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const rangeStart = new Date(today.getFullYear(), today.getMonth() - months, 1).toISOString().split('T')[0];
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
+  const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+
+  const [
+    { data: thisMonthV }, { data: lastMonthV },
+    { data: rangeV }, { data: allCust }, { count: custCount }
+  ] = await Promise.all([
+    sb.from('visits').select('amount,number_of_people').gte('visit_date', thisMonthStart).lte('visit_date', todayStr),
+    sb.from('visits').select('amount,number_of_people').gte('visit_date', lastMonthStart).lte('visit_date', lastMonthEnd),
+    sb.from('visits').select('visit_date,amount,drinks,customer_id,customers(gender,birthday,job)').gte('visit_date', rangeStart).lte('visit_date', todayStr),
+    sb.from('customers').select('id,gender,birthday,job,created_at'),
+    sb.from('customers').select('*', { count: 'exact', head: true })
+  ]);
+
+  const calcStats = v => {
+    const arr = v || [];
+    const revenue = arr.reduce((s,x) => s+(x.amount||0), 0);
+    const ppl = arr.reduce((s,x) => s+(x.number_of_people||1), 0);
+    return { count: arr.length, revenue, avgSpend: ppl > 0 ? Math.round(revenue/ppl) : 0 };
+  };
+  const thisMonth = calcStats(thisMonthV);
+  const lastMonth = calcStats(lastMonthV);
+
+  // 曜日別
+  const dow = Array.from({length:7}, ()=>({count:0,revenue:0}));
+  (rangeV||[]).forEach(v => {
+    const d = new Date(v.visit_date+'T00:00:00').getDay();
+    dow[d].count++; dow[d].revenue += v.amount||0;
+  });
+
+  // 人気ドリンク
+  const dc = {};
+  (rangeV||[]).forEach(v => (v.drinks||'').split('\n').filter(Boolean).forEach(d => { dc[d]=(dc[d]||0)+1; }));
+  const topDrinks = Object.entries(dc).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // 顧客属性
+  const gc={}, ac={}, jc={};
+  (allCust||[]).forEach(c => {
+    if (c.gender) gc[c.gender]=(gc[c.gender]||0)+1;
+    const ag = calcAgeGroup(c.birthday); if (ag) ac[ag]=(ac[ag]||0)+1;
+    if (c.job) jc[c.job]=(jc[c.job]||0)+1;
+  });
+
+  // リピーター率
+  const vc = {};
+  (rangeV||[]).forEach(v => { vc[v.customer_id]=(vc[v.customer_id]||0)+1; });
+  const totalVisitors = Object.keys(vc).length;
+  const repeatRate = totalVisitors > 0 ? Math.round(Object.values(vc).filter(n=>n>=2).length/totalVisitors*100) : 0;
+  const newCust = (allCust||[]).filter(c => c.created_at >= thisMonthStart).length;
+
+  return { today: todayStr, months, thisMonth, lastMonth, dow, topDrinks, gc, ac, jc, custCount: custCount||0, newCust, repeatRate };
+}
+
+function buildAnalysisPrompt(d, months) {
+  const DOWS = ['日','月','火','水','木','金','土'];
+  const pct = (a,b) => b>0 ? ((a-b)/b*100).toFixed(1)+'%' : '初月';
+  const top = (obj,n=4) => Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n).map(([k,v])=>`${k}:${v}名`).join('、')||'データなし';
+
+  return `あなたはバー経営の専門コンサルタントです。以下のデータを基に、オーナー向けの経営分析レポートを日本語で作成してください。
+
+## BARデータ（${d.today}時点 / 分析期間:直近${months}ヶ月）
+
+### 今月 vs 先月
+| 指標 | 先月 | 今月 | 変化 |
+|------|------|------|------|
+| 来店回数 | ${d.lastMonth.count}回 | ${d.thisMonth.count}回 | ${pct(d.thisMonth.count, d.lastMonth.count)} |
+| 売上合計 | ¥${d.lastMonth.revenue.toLocaleString()} | ¥${d.thisMonth.revenue.toLocaleString()} | ${pct(d.thisMonth.revenue, d.lastMonth.revenue)} |
+| 平均客単価 | ¥${d.lastMonth.avgSpend.toLocaleString()} | ¥${d.thisMonth.avgSpend.toLocaleString()} | ${pct(d.thisMonth.avgSpend, d.lastMonth.avgSpend)} |
+
+### 曜日別来店（直近${months}ヶ月）
+${DOWS.map((n,i)=>`${n}曜: ${d.dow[i].count}回・平均¥${d.dow[i].count>0?Math.round(d.dow[i].revenue/d.dow[i].count).toLocaleString():0}`).join('\n')}
+
+### 顧客情報
+- 総顧客数: ${d.custCount}名 / 今月新規: ${d.newCust}名 / リピート率: ${d.repeatRate}%
+- 性別: ${top(d.gc,4)}
+- 年齢層: ${top(d.ac,5)}
+- 職業: ${top(d.jc,5)}
+
+### 人気ドリンク TOP5（直近${months}ヶ月）
+${d.topDrinks.length>0 ? d.topDrinks.map(([n,c],i)=>`${i+1}. ${n}（${c}回）`).join('\n') : 'データなし'}
+
+---
+以下の構成でレポートを作成してください：
+
+## 📊 現状分析
+## 📈 注目トレンド
+## 💡 改善提案（3〜5項目）
+## 🎯 今月の優先アクション`;
+}
+
+async function callClaudeAPI(prompt) {
+  if (!aiApiKey) throw new Error('APIキーが未設定です');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': aiApiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e.error?.message || `HTTP ${res.status}`);
+  }
+  const json = await res.json();
+  return json.content[0].text;
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^#### (.+)$/gm, '<h4 style="color:#9098b8;font-size:0.88em;margin:10px 0 4px">$1</h4>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^\| (.+) \|$/gm, m => {
+      const cells = m.split('|').map(c=>c.trim()).filter(Boolean);
+      return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+    })
+    .replace(/(<tr>.*<\/tr>\n?)+/g, m => `<table>${m}</table>`)
+    .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+    .replace(/(<li>.*<\/li>\n?)+/g, m => `<ol>${m}</ol>`)
+    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>(?!<li>).*<\/li>\n?)+(?!<\/ol>)/g, m => m.startsWith('<ol>') ? m : `<ul>${m}</ul>`)
+    .replace(/\n{2,}/g, '</p><p>')
+    .replace(/^(?!<[htuol])(.+)$/gm, (m) => m.trim() ? m : '');
 }
 
 // ── Visit History ──
