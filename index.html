@@ -139,8 +139,7 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
 .cal-cell-date { font-size: 0.77em; font-weight: 700; color: #9098b8; }
 .cal-cell.today .cal-cell-date { color: #a78bfa; }
 .cal-cell.has-visit .cal-cell-date { color: #e2e5f0; }
-.cal-cell:first-child .cal-cell-date, .cal-cell:nth-child(7n+1) .cal-cell-date { color: #f87171; }
-.cal-cell:nth-child(7n) .cal-cell-date { color: #60a5fa; }
+/* 曜日色はJS側でインラインスタイルを使用 */
 .cal-visit-info { font-size: 0.66em; color: #a78bfa; font-weight: 600; margin-top: 2px; }
 .cal-amount { font-size: 0.62em; color: #34d399; }
 .cal-staff-row { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
@@ -149,6 +148,15 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
   .cal-cell { min-height: 52px; padding: 4px 3px; }
   .cal-amount { display: none; }
 }
+
+/* 曜日別統計 */
+.dow-table { width: 100%; border-collapse: collapse; font-size: 0.8em; margin-top: 10px; }
+.dow-table th { background: #1e2235; color: #9098b8; font-weight: 600; padding: 6px 8px; text-align: center; }
+.dow-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid #1e2235; color: #c0c8e0; }
+.dow-table tr:last-child td { border-bottom: none; }
+.dow-table td:first-child { font-weight: 700; }
+.dow-sun td:first-child { color: #f87171; }
+.dow-sat td:first-child { color: #60a5fa; }
 
 /* 日別詳細モーダル */
 .day-detail-visit { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #252840; font-size: 0.84em; }
@@ -356,6 +364,13 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <canvas id="monthlyChart" height="80"></canvas>
       </div>
 
+      <!-- 曜日別統計 -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-title">曜日別統計</div>
+        <canvas id="dowChart" height="75"></canvas>
+        <div id="dowBreakdown"></div>
+      </div>
+
       <!-- 日計 + 性別 -->
       <div class="dash-row" style="margin-bottom:14px">
         <div class="card">
@@ -397,7 +412,7 @@ tbody tr:hover td { background: #1a1d30; cursor: pointer; }
         <div class="tag-filter-bar" id="tagFilterBtns"></div>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>名前</th><th>性別</th><th>電話</th><th>タグ</th><th>誕生日</th></tr></thead>
+            <thead><tr><th>名前</th><th>性別</th><th>職業</th><th>年齢</th><th>タグ</th></tr></thead>
             <tbody id="customerList"><tr><td colspan="5" class="empty-state">読み込み中…</td></tr></tbody>
           </table>
         </div>
@@ -804,7 +819,7 @@ function closeSidebar() {
 }
 
 // ── Dashboard ──
-let monthlyChartInstance = null;
+let monthlyChartInstance = null, dowChartInstance = null;
 async function loadDashboard() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -812,7 +827,7 @@ async function loadDashboard() {
   const twelveMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 11, 1).toISOString().split('T')[0];
   const sevenDaysAgo = new Date(today.getTime() - 6 * 86400000).toISOString().split('T')[0];
 
-  const [{ count }, { data: mv }, { data: visits12m }, { data: rv }, { data: allCust }] = await Promise.all([
+  const [{ count }, { data: mv }, { data: visits12m }, { data: rv }, { data: allCust }, { data: dowVisits }] = await Promise.all([
     sb.from('customers').select('*', { count: 'exact', head: true }),
     sb.from('visits').select('amount,number_of_people,check_in_time,check_out_time')
       .gte('visit_date', firstOfMonth).lte('visit_date', todayStr),
@@ -820,7 +835,8 @@ async function loadDashboard() {
       .gte('visit_date', twelveMonthsAgo).lte('visit_date', todayStr),
     sb.from('visits').select('*, customers(name,nickname,color)')
       .order('visit_date', { ascending: false }).limit(10),
-    sb.from('customers').select('gender,birthday')
+    sb.from('customers').select('gender,birthday'),
+    sb.from('visits').select('visit_date,amount,customers(gender,birthday,job)')
   ]);
 
   // KPI
@@ -851,6 +867,9 @@ async function loadDashboard() {
   // 月別売上チャート
   renderMonthlyChart(visits12m || []);
 
+  // 曜日別統計
+  renderDowChart(dowVisits || []);
+
   // 日計
   renderDailySummary(visits12m || [], sevenDaysAgo, todayStr);
 
@@ -873,6 +892,64 @@ async function loadDashboard() {
   </tr>`).join('');
 }
 
+function renderDowChart(visits) {
+  const DOWS = ['日','月','火','水','木','金','土'];
+  const DOW_COLORS = ['#f87171','#a78bfa','#a78bfa','#a78bfa','#a78bfa','#a78bfa','#60a5fa'];
+  // 曜日ごとに集計
+  const stats = Array.from({length: 7}, () => ({ total: 0, count: 0, gender: {}, age: {}, job: {} }));
+  visits.forEach(v => {
+    const dow = new Date(v.visit_date + 'T00:00:00').getDay();
+    const s = stats[dow];
+    s.total += v.amount || 0;
+    s.count++;
+    const c = v.customers;
+    if (c?.gender) s.gender[c.gender] = (s.gender[c.gender] || 0) + 1;
+    const ag = calcAgeGroup(c?.birthday);
+    if (ag) s.age[ag] = (s.age[ag] || 0) + 1;
+    if (c?.job) s.job[c.job] = (s.job[c.job] || 0) + 1;
+  });
+  const avgs = stats.map(s => s.count > 0 ? Math.round(s.total / s.count) : 0);
+
+  // Chart
+  const ctx = document.getElementById('dowChart').getContext('2d');
+  if (dowChartInstance) dowChartInstance.destroy();
+  dowChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DOWS,
+      datasets: [
+        { label: '平均売上', data: avgs, backgroundColor: DOW_COLORS.map(c => c + 'bb'), borderColor: DOW_COLORS, borderWidth: 1, borderRadius: 4, yAxisID: 'y' },
+        { label: '来店回数', data: stats.map(s => s.count), type: 'line', borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', borderWidth: 2, pointRadius: 3, yAxisID: 'y2' }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: '#9098b8', font: { size: 11 } } }, tooltip: { callbacks: { label: ctx => ctx.datasetIndex === 0 ? '¥' + ctx.raw.toLocaleString() : ctx.raw + '回' } } },
+      scales: {
+        x: { ticks: { color: '#9098b8' }, grid: { color: '#1e2235' } },
+        y: { position: 'left', ticks: { color: '#9098b8', callback: v => '¥' + v.toLocaleString() }, grid: { color: '#252840' } },
+        y2: { position: 'right', ticks: { color: '#34d399' }, grid: { display: false } }
+      }
+    }
+  });
+
+  // ブレークダウンテーブル
+  const top = obj => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+  document.getElementById('dowBreakdown').innerHTML = `
+    <table class="dow-table">
+      <thead><tr><th>曜日</th><th>来店</th><th>平均売上</th><th>多い性別</th><th>多い年齢</th><th>多い職業</th></tr></thead>
+      <tbody>${stats.map((s,i) => `
+        <tr class="${i===0?'dow-sun':i===6?'dow-sat':''}">
+          <td>${DOWS[i]}</td>
+          <td>${s.count}回</td>
+          <td>${s.count>0?'¥'+avgs[i].toLocaleString():'—'}</td>
+          <td>${top(s.gender)}</td>
+          <td>${top(s.age)}</td>
+          <td>${top(s.job)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
 function renderMonthlyChart(visits) {
   const monthMap = {};
   for (let i = 11; i >= 0; i--) {
@@ -1018,10 +1095,10 @@ async function loadCalendarData() {
   // 日付ごとにまとめる
   calVisitMap = {};
   (visits || []).forEach(v => {
-    if (!calVisitMap[v.visit_date]) calVisitMap[v.visit_date] = { visits: [], amount: 0, people: 0 };
+    if (!calVisitMap[v.visit_date]) calVisitMap[v.visit_date] = { visits: [], amount: 0, count: 0 };
     calVisitMap[v.visit_date].visits.push(v);
     calVisitMap[v.visit_date].amount += v.amount || 0;
-    calVisitMap[v.visit_date].people += v.number_of_people || 1;
+    calVisitMap[v.visit_date].count++;   // 来店レコード数（人数）
   });
   calShiftMap = {};
   (shifts || []).forEach(s => {
@@ -1058,7 +1135,7 @@ function renderCalendar() {
     const dateColor = dow === 0 ? 'color:#f87171' : dow === 6 ? 'color:#60a5fa' : '';
     html += `<div class="cal-cell${vd ? ' has-visit' : ''}${isToday ? ' today' : ''}" onclick="openDayDetail('${ds}')">
       <div class="cal-cell-date" style="${dateColor}">${d}</div>
-      ${vd ? `<div class="cal-visit-info">${vd.people}名</div><div class="cal-amount">¥${vd.amount.toLocaleString()}</div>` : ''}
+      ${vd ? `<div class="cal-visit-info">${vd.count}名</div><div class="cal-amount">¥${vd.amount.toLocaleString()}</div>` : ''}
       ${sd.length ? `<div class="cal-staff-row">${sd.map(s => `<div class="cal-staff-pip" style="background:${s.staff?.color||'#10b981'}" title="${s.staff?.name||''}"></div>`).join('')}</div>` : ''}
     </div>`;
   }
@@ -1339,12 +1416,17 @@ function renderCustomers() {
   document.getElementById('customerCount').textContent = filtered.length + '件';
   const el = document.getElementById('customerList');
   if (!filtered.length) { el.innerHTML = '<tr><td colspan="5" class="empty-state">顧客が見つかりません</td></tr>'; return; }
-  el.innerHTML = filtered.map(c => `<tr onclick="openCustomerDetail('${c.id}')">
-    <td><span class="cust-dot" style="background:${c.color||'#7c6af7'}"></span><strong>${c.name||''}</strong>${c.nickname?'<br><span style="color:#9098b8;font-size:0.78em">'+c.nickname+'</span>':''}</td>
-    <td>${c.gender||''}</td><td>${c.phone||''}</td>
-    <td>${(c.tags||[]).map(t=>{const tm=tagMaster.find(x=>x.name===t);return`<span class="tag-badge" style="background:${tm?tm.color+'20':'#1e1440'};color:${tm?tm.color:'#a78bfa'};border-color:${tm?tm.color+'50':'#3d2880'}">${t}</span>`}).join('')}</td>
-    <td>${formatBirthday(c.birthday)}</td>
-  </tr>`).join('');
+  el.innerHTML = filtered.map(c => {
+    const age = calcAge(c.birthday);
+    const ageStr = age !== null ? age + '歳' : '';
+    return `<tr onclick="openCustomerDetail('${c.id}')">
+      <td><span class="cust-dot" style="background:${c.color||'#7c6af7'}"></span><strong>${c.name||''}</strong>${c.nickname?'<br><span style="color:#9098b8;font-size:0.78em">'+c.nickname+'</span>':''}</td>
+      <td>${c.gender||''}</td>
+      <td>${c.job||''}</td>
+      <td>${ageStr}</td>
+      <td>${(c.tags||[]).map(t=>{const tm=tagMaster.find(x=>x.name===t);return`<span class="tag-badge" style="background:${tm?tm.color+'20':'#1e1440'};color:${tm?tm.color:'#a78bfa'};border-color:${tm?tm.color+'50':'#3d2880'}">${t}</span>`}).join('')}</td>
+    </tr>`;
+  }).join('');
 }
 function renderTagFilter() {
   const allTags = [...new Set(customers.flatMap(c=>c.tags||[]))].sort();
@@ -1359,6 +1441,23 @@ function formatBirthday(bd) {
   if (!bd) return '';
   const [y,m,d] = bd.split('/');
   return [y?y+'年':'', m?m+'月':'', d?d+'日':''].filter(Boolean).join(' ');
+}
+function calcAge(bd) {
+  if (!bd) return null;
+  const year = parseInt(bd.split('/')[0]);
+  if (!year || isNaN(year)) return null;
+  const today = new Date();
+  const age = today.getFullYear() - year;
+  return age >= 0 && age < 130 ? age : null;
+}
+function calcAgeGroup(bd) {
+  const age = calcAge(bd);
+  if (age === null) return null;
+  if (age < 20) return '10代';
+  if (age < 30) return '20代';
+  if (age < 40) return '30代';
+  if (age < 50) return '40代';
+  return '50代↑';
 }
 function parseBirthdayFields() {
   const y = document.getElementById('cfBirthYear').value.trim();
